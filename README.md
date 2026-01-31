@@ -1,26 +1,27 @@
 ### Distributed Energy Management System (DEMS) & Real-Time Market Intelligence
 
-**EMMA** es una plataforma de software distribuido diseñada para la monitorización, análisis y optimización de activos energéticos en el mercado europeo. La plataforma resuelve el reto del **desacoplamiento de precios** y la **intermitencia de las renovables**, permitiendo a las comunidades energéticas y operadores industriales tomar decisiones basadas en datos en tiempo real.
+**EMMA** is a distributed software platform designed for monitoring, analyzing, and optimizing energy assets in the European market. The platform solves the challenge of **price decoupling** and **renewable energy intermittency**, allowing energy communities and industrial operators to make decisions based on real-time data.
 
-## 🚀 Propósito del Proyecto
+## 🚀 Project Purpose
 
-En un mercado donde los precios pueden oscilar entre los 130 €/MWh en Francia y valores negativos en España, EMMA actúa como un cerebro centralizado que:
+In a market where prices can range from €130/MWh in France to negative values in Spain, EMMA acts as a centralized brain that:
 
-- **Sincroniza:** Ingiere telemetría masiva de activos IoT (paneles solares, baterías, EV chargers) mediante protocolos ligeros.
-- **Analiza:** Procesa datos del operador del mercado europeo (ENTSO-E) para identificar oportunidades de **arbitraje energético**.
-- **Optimiza:** Automatiza el consumo de activos cuando la red presenta excedentes (precios negativos), reduciendo la huella de carbono y el coste operativo.
+- **Synchronizes:** Ingests massive telemetry from IoT assets (solar panels, batteries, EV chargers) using lightweight protocols.
+- **Analyzes:** Processes data from the European market operator (ENTSO-E) to identify opportunities for **energy arbitrage**.
+- **Optimizes:** Automates asset consumption when the grid has surpluses (negative prices), reducing the carbon footprint and operating costs.
 
-## 🛠️ Stack Tecnológico & Arquitectura
+## 🛠️ Technology Stack & Architecture
 
-Diseñado bajo un enfoque de **microservicios desacoplados** y alta disponibilidad:
+Designed with a focus on **decoupled microservices** and high availability:
 
-- **Ingestion Engine:** Microservicios en [Tu Lenguaje: Go/Node.js] procesando mensajes vía **MQTT/NATS**.
-- **Data Core:** Arquitectura híbrida con **PostgreSQL** para la lógica de negocio y **TimescaleDB** para el almacenamiento masivo de series temporales con compresión nativa.
-- **Market Intelligence:** Integración con la API de **ENTSO-E** para la monitorización de precios intradiarios y congestión de interconexiones.
-- **DevOps:** Despliegue orquestado mediante **Docker** y observabilidad en tiempo real con **Grafana**.
+- **Ingestion Engine:** Microservices in [Your Language: Go/Node.js] processing messages via **MQTT/NATS**.
+- **Data Core:** Hybrid architecture with **PostgreSQL** for business logic and **TimescaleDB** for massive time series storage with native compression.
+
+- **Market Intelligence:** Integration with the **ENTSO-E** API for monitoring intraday prices and interconnection congestion.
+- **DevOps:** Orchestrated deployment using **Docker** and real-time observability with **Grafana**.
 
 ## 🇪🇺 Compliance & EU Standards
 
-- **GDPR Ready:** Implementación de anonimización de datos de consumo a nivel de base de datos.
-- **Multi-Region:** Soporte nativo para múltiples husos horarios (CET/EET/WET) y gestión de IVA intracomunitario.
-- **Energy Efficiency:** Algoritmos optimizados para el manejo de precios negativos derivados de la sobreproducción renovable.
+- **GDPR Ready:** Implementation of consumption data anonymization at the database level.
+- **Multi-Region:** Native support for multiple time zones (CET/EET/WET) and intra-community VAT management.
+- **Energy Efficiency:** Optimized algorithms for handling negative prices resulting from renewable overproduction.
