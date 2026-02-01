@@ -1,7 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var postgresql = builder.AddPostgres("postgresql")
-    .WithImage("timescale/timescaledb", "latest-pg17");
+    .WithImage("timescale/timescaledb", "latest-pg17")
+    .WithPgAdmin();
 
 var emma_db = postgresql.AddDatabase("emma-db");
 

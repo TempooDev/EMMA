@@ -1,3 +1,6 @@
+using Npgsql;
+using EMMA.Server.Infrastructure.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -9,6 +12,11 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Configure database and initializer
+builder.Services.AddSingleton<NpgsqlDataSource>(sp => 
+    NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("emma-db")!));
+builder.Services.AddHostedService<DbInitializer>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -18,6 +26,7 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
 
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];

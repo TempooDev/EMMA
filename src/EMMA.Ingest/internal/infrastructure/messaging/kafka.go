@@ -1,21 +1,16 @@
 package messaging
 
 import (
-	"fmt"
-
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/segmentio/kafka-go"
 )
 
-func NewKafkaConsumer(bootstrapServers, groupID, autoOffsetReset string) (*kafka.Consumer, error) {
-	c, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"group.id":          groupID,
-		"auto.offset.reset": autoOffsetReset,
+// NewKafkaConsumer creates a new Kafka Reader (consumer group)
+func NewKafkaConsumer(brokers []string, groupID, topic string) *kafka.Reader {
+	return kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  brokers,
+		GroupID:  groupID,
+		Topic:    topic,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
 	})
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kafka consumer: %w", err)
-	}
-
-	return c, nil
 }

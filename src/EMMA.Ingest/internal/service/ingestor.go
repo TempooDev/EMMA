@@ -5,53 +5,49 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/jackc/pgx/v5"
+	"github.com/segmentio/kafka-go"
 
 	"emma/ingestor/internal/config"
 	"emma/ingestor/internal/model"
 )
 
 type Ingestor struct {
-	cfg      *config.Config
-	db       *pgx.Conn
-	consumer *kafka.Consumer
+	cfg    *config.Config
+	db     *pgx.Conn
+	reader *kafka.Reader
 }
 
-func NewIngestor(cfg *config.Config, db *pgx.Conn, consumer *kafka.Consumer) *Ingestor {
+func NewIngestor(cfg *config.Config, db *pgx.Conn, reader *kafka.Reader) *Ingestor {
 	return &Ingestor{
-		cfg:      cfg,
-		db:       db,
-		consumer: consumer,
+		cfg:    cfg,
+		db:     db,
+		reader: reader,
 	}
 }
 
 func (s *Ingestor) Start(ctx context.Context) error {
-	err := s.consumer.SubscribeTopics([]string{s.cfg.Topic}, nil)
-	if err != nil {
-		return err
-	}
+	defer s.reader.Close()
 	log.Printf("EMMA Ingestor started. Listening on topic: %s", s.cfg.Topic)
 
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			msg, err := s.consumer.ReadMessage(-1)
-			if err == nil {
-				var data model.Telemetry
-				if err := json.Unmarshal(msg.Value, &data); err != nil {
-					log.Printf("Error decoding JSON: %v", err)
-					continue
-				}
-
-				s.processTelemetry(data)
-			} else {
-				// Kafka errors can be transient, log and continue
-				log.Printf("Consumer error: %v", err)
+		// ReadMessage automatically handles context cancellation
+		msg, err := s.reader.ReadMessage(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
+			log.Printf("Consumer error: %v", err)
+			continue
 		}
+
+		var data model.Telemetry
+		if err := json.Unmarshal(msg.Value, &data); err != nil {
+			log.Printf("Error decoding JSON: %v", err)
+			continue
+		}
+
+		s.processTelemetry(data)
 	}
 }
 

@@ -25,15 +25,15 @@ func main() {
 	}
 	defer conn.Close(ctx)
 
-	// 3. Setup Kafka Consumer
-	consumer, err := messaging.NewKafkaConsumer(cfg.BootstrapServers, cfg.GroupID, cfg.AutoOffsetReset)
-	if err != nil {
-		log.Fatalf("Error creating consumer: %s", err)
-	}
-	defer consumer.Close()
+	// 3. Setup Kafka Reader
+	// Note: We're passing BootstrapServers as a slice. If it's a comma-separated list, 
+	// we might need strings.Split(cfg.BootstrapServers, ","), but wrapping in []string{}
+	// is safe for a single broker.
+	reader := messaging.NewKafkaConsumer([]string{cfg.BootstrapServers}, cfg.GroupID, cfg.Topic)
+	defer reader.Close()
 
 	// 4. Start Ingestor Service
-	ingestor := service.NewIngestor(cfg, conn, consumer)
+	ingestor := service.NewIngestor(cfg, conn, reader)
 	if err := ingestor.Start(ctx); err != nil {
 		log.Fatalf("Ingestor service failed: %v", err)
 	}
