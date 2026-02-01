@@ -14,7 +14,7 @@ In a market where prices can range from €130/MWh in France to negative values 
 
 Designed with a focus on **decoupled microservices** and high availability:
 
-- **Ingestion Engine:** Microservices in [Your Language: Go/Node.js] processing messages via **MQTT/NATS**.
+- **Ingestion Engine:** Microservices in Go/Node.js processing messages via **MQTT/NATS**.
 - **Data Core:** Hybrid architecture with **PostgreSQL** for business logic and **TimescaleDB** for massive time series storage with native compression.
 
 - **Market Intelligence:** Integration with the **ENTSO-E** API for monitoring intraday prices and interconnection congestion.
