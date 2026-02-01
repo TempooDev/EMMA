@@ -8,6 +8,41 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EMMA.Server", "EMMA.Server\
 EndProject
 Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "frontend", "frontend\frontend.esproj", "{72211051-61C8-4B5C-BCF3-BA590D7DFF59}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EMMA.Ingest", "EMMA.Ingest", "{D0933928-A466-4191-8D99-232185250485}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\go.mod = EMMA.Ingest\go.mod
+		EMMA.Ingest\main.go = EMMA.Ingest\main.go
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "internal", "internal", "{88888888-8888-8888-8888-888888888801}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "config", "config", "{88888888-8888-8888-8888-888888888802}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\internal\config\config.go = EMMA.Ingest\internal\config\config.go
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "infrastructure", "infrastructure", "{88888888-8888-8888-8888-888888888803}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "database", "database", "{88888888-8888-8888-8888-888888888804}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\internal\infrastructure\database\postgres.go = EMMA.Ingest\internal\infrastructure\database\postgres.go
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "messaging", "messaging", "{88888888-8888-8888-8888-888888888805}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\internal\infrastructure\messaging\kafka.go = EMMA.Ingest\internal\infrastructure\messaging\kafka.go
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "model", "model", "{88888888-8888-8888-8888-888888888806}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\internal\model\telemetry.go = EMMA.Ingest\internal\model\telemetry.go
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "service", "service", "{88888888-8888-8888-8888-888888888807}"
+	ProjectSection(SolutionItems) = preProject
+		EMMA.Ingest\internal\service\ingestor.go = EMMA.Ingest\internal\service\ingestor.go
+	EndProjectSection
+EndProject
 
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,6 +66,15 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{88888888-8888-8888-8888-888888888801} = {D0933928-A466-4191-8D99-232185250485}
+		{88888888-8888-8888-8888-888888888802} = {88888888-8888-8888-8888-888888888801}
+		{88888888-8888-8888-8888-888888888803} = {88888888-8888-8888-8888-888888888801}
+		{88888888-8888-8888-8888-888888888804} = {88888888-8888-8888-8888-888888888803}
+		{88888888-8888-8888-8888-888888888805} = {88888888-8888-8888-8888-888888888803}
+		{88888888-8888-8888-8888-888888888806} = {88888888-8888-8888-8888-888888888801}
+		{88888888-8888-8888-8888-888888888807} = {88888888-8888-8888-8888-888888888801}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {04C53147-41FD-40DD-9BA3-771DBF80665B}
