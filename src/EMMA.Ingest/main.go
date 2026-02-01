@@ -34,6 +34,10 @@ func main() {
 
 	// 4. Start Ingestor Service
 	ingestor := service.NewIngestor(cfg, conn, reader)
+	
+	// Start background jobs
+	go ingestor.StartPriceFetcher(ctx)
+
 	if err := ingestor.Start(ctx); err != nil {
 		log.Fatalf("Ingestor service failed: %v", err)
 	}

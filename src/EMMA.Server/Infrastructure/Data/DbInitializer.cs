@@ -106,6 +106,18 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                         NULL; -- Policy likely already exists
                     END;
                 END $$;
+
+                -- 11. Market Prices
+                CREATE TABLE IF NOT EXISTS market_prices (
+                    time TIMESTAMPTZ NOT NULL,
+                    price DOUBLE PRECISION NOT NULL,
+                    currency TEXT NOT NULL,
+                    source TEXT NOT NULL, -- e.g., 'ENTSO-E', 'REData'
+                    PRIMARY KEY (time, source)
+                );
+
+                -- 12. Hypertable for market_prices
+                SELECT create_hypertable('market_prices', 'time', if_not_exists => TRUE);
             ";
 
             await connection.ExecuteAsync(sql);
