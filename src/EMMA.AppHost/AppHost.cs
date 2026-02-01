@@ -6,26 +6,29 @@ var postgresql = builder.AddPostgres("postgresql")
 var emma_db = postgresql.AddDatabase("emma-db");
 
 var kafka = builder.AddKafka("messaging")
-    .WithImage("confluentinc/cp-kafka", "latest")
     .WithKafkaUI();
 
-var mqttBridge = builder.AddContainer("mqtt-bridge", "simple-mqtt-kafka-bridge")
+var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-bridge")
                         .WithReference(kafka)
+                        .WaitFor(kafka)
+                        .WithEnvironment("KAFKA_BROKERS", kafka.GetEndpoint("tcp"))
                         .WithEnvironment("KAFKA_TOPIC", "telemetry-raw")
-                        .WithHttpEndpoint(port: 1883, name: "mqtt-port");
+                        .WithEndpoint(targetPort: 1883, name: "mqtt-port");
 
-var ingest = builder.AddGolangApp("ingest", "../ingest")
-    .WithReference(emma_db);
+var ingest = builder.AddGolangApp("ingest", "../EMMA.Ingest")
+    .WithReference(emma_db)
+    .WaitFor(emma_db)
+    .WithReference(kafka)
+    .WaitFor(kafka);
 
 var server = builder.AddProject<Projects.EMMA_Server>("server")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
-    .WithReference(emma_db);
+    .WithReference(emma_db)
+    .WaitFor(emma_db);
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
     .WaitFor(server);
-
-server.PublishWithContainerFiles(webfrontend, "wwwroot");
 
 builder.Build().Run();
