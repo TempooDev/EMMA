@@ -11,7 +11,7 @@ var kafka = builder.AddKafka("messaging")
 var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-bridge")
                         .WithReference(kafka)
                         .WaitFor(kafka)
-                        .WithEnvironment("KAFKA_BROKERS", kafka.GetEndpoint("tcp"))
+                        .WithEnvironment("KAFKA_BROKERS", $"{kafka.Resource.Name}:9093")
                         .WithEnvironment("KAFKA_TOPIC", "telemetry-raw")
                         .WithEndpoint(targetPort: 1883, name: "mqtt-port");
 
