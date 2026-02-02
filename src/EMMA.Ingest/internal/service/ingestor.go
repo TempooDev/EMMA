@@ -11,6 +11,9 @@ import (
 
 	"emma/ingestor/internal/config"
 	"emma/ingestor/internal/infrastructure/reddata"
+	"net"
+	"strconv"
+
 	"emma/ingestor/internal/model"
 )
 
@@ -18,18 +21,33 @@ type Ingestor struct {
 	cfg    *config.Config
 	db     *pgx.Conn
 	reader *kafka.Reader
+	writer *kafka.Writer
 }
 
 func NewIngestor(cfg *config.Config, db *pgx.Conn, reader *kafka.Reader) *Ingestor {
+	// Simple Kafka Writer for alerts
+	// Assuming cfg.BootstrapServers is available/parsable.
+	// For simplicity, hardcoding topic 'price-alert' or could add to config.
+	writer := &kafka.Writer{
+		Addr:     kafka.TCP(cfg.BootstrapServers),
+		Topic:    "price-alert",
+		Balancer: &kafka.LeastBytes{},
+	}
+
 	return &Ingestor{
 		cfg:    cfg,
 		db:     db,
 		reader: reader,
+		writer: writer,
 	}
 }
 
 func (s *Ingestor) Start(ctx context.Context) error {
 	defer s.reader.Close()
+	
+	// Create price-alert topic explicitly to avoid reliance on auto.create.topics.enable
+	s.ensureTopic(ctx, "price-alert")
+
 	log.Printf("EMMA Ingestor started. Listening on topic: %s", s.cfg.Topic)
 
 	for {
@@ -146,6 +164,13 @@ func (s *Ingestor) fetchAndSavePrices(ctx context.Context) {
 			if err != nil {
 				log.Printf("Error inserting price: %v\n", err)
 			}
+
+			// Check Alert
+			if v.Value < 0 {
+				if err := s.publishPriceAlert(ctx, t, v.Value); err != nil {
+					log.Printf("Error publishing alert: %v", err)
+				}
+			}
 		}
 	}
 	
@@ -239,6 +264,70 @@ func (s *Ingestor) fetchAndSaveGeneric(ctx context.Context, client *reddata.Clie
 	}
 	log.Printf("Saved data for %s/%s", category, widget)
 }
+
+func (s *Ingestor) publishPriceAlert(ctx context.Context, t time.Time, price float64) error {
+	log.Printf("[ALERT] Negative price detected: %.2f at %v. Sending to Kafka...", price, t)
+	
+	alertPayload := map[string]interface{}{
+		"event": "price_alert",
+		"type": "negative_price",
+		"timestamp": t,
+		"price": price,
+		"currency": "EUR",
+		"unit": "€/MWh",
+	}
+	
+	val, err := json.Marshal(alertPayload)
+	if err != nil {
+		return err
+	}
+
+	return s.writer.WriteMessages(ctx, kafka.Message{
+		Key:   []byte("price-alert"),
+		Value: val,
+		Time:  time.Now(),
+	})
+}
+
+func (s *Ingestor) ensureTopic(ctx context.Context, topic string) {
+	// Quick robust implementation to create topic if not exists
+	conn, err := kafka.Dial("tcp", s.cfg.BootstrapServers)
+	if err != nil {
+		log.Printf("Warning: failed to dial kafka to ensure topic: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	controller, err := conn.Controller()
+	if err != nil {
+		log.Printf("Warning: failed to get kafka controller: %v", err)
+		return
+	}
+
+	controllerConn, err := kafka.Dial("tcp", net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)))
+	if err != nil {
+		log.Printf("Warning: failed to dial kafka controller: %v", err)
+		return
+	}
+	defer controllerConn.Close()
+
+	topicConfigs := []kafka.TopicConfig{
+		{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		},
+	}
+
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil {
+		// Ignore if topic already exists
+		log.Printf("ensureTopic info: %v", err)
+	} else {
+		log.Printf("Topic '%s' ensured (created or existed)", topic)
+	}
+}
+
 
 type MarketPrice struct {
 	Time     time.Time
