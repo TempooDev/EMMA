@@ -10,6 +10,7 @@ import (
 	"github.com/segmentio/kafka-go"
 
 	"emma/ingestor/internal/config"
+	"emma/ingestor/internal/infrastructure/reddata"
 	"emma/ingestor/internal/model"
 )
 
@@ -60,45 +61,183 @@ func (s *Ingestor) processTelemetry(data model.Telemetry) {
 }
 
 func (s *Ingestor) StartPriceFetcher(ctx context.Context) {
-	log.Println("Starting Price Fetcher service...")
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-
-	// Initial run
+	log.Println("Starting Price Fetcher service (Cron: @hourly)...")
+	
+	// 1. Run immediately on startup (optional, but good to populate data ASAP)
 	go s.fetchAndSavePrices(ctx)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			go s.fetchAndSavePrices(ctx)
+	// 2. Calculate time until next hour for alignment
+	now := time.Now()
+	nextHour := now.Truncate(time.Hour).Add(1 * time.Hour)
+	delay := nextHour.Sub(now)
+
+	log.Printf("Next scheduled run in %v (at %v)", delay, nextHour.Format(time.TimeOnly))
+
+	// Timer for the first aligned run
+	timer := time.NewTimer(delay)
+	
+	go func() {
+		<-timer.C
+		// First aligned run
+		s.fetchAndSavePrices(ctx)
+		
+		// Then ticker every hour
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				go s.fetchAndSavePrices(ctx)
+			}
 		}
-	}
+	}()
 }
 
 func (s *Ingestor) fetchAndSavePrices(ctx context.Context) {
-	log.Println("Fetching market prices...")
-	prices := simulateVerifyExternalAPI()
+	// Ensure schema exists before we try to insert anything
+	if err := s.ensureSchema(ctx); err != nil {
+		log.Printf("Error ensuring schema: %v", err)
+		// Proceeding might fail, but let's try
+	}
 
-	for _, p := range prices {
-		t := p.Time.UTC()
-		if p.Price < 0 {
-			log.Printf("ALERT: Negative price detected! %v at %v (%s)\n", p.Price, t, p.Source)
-		}
+	log.Println("Fetching market prices from REDData...")
+	
+	client := reddata.NewClient()
+	// Truncate to hour to ensure cleaner API requests (avoiding minutes/seconds issues)
+	now := time.Now().Truncate(time.Hour)
+	start := now.Add(-24 * time.Hour) // Last 24 hours
+	end := now
 
-		query := `
-			INSERT INTO market_prices (time, price, currency, source)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (time, source) DO UPDATE 
-			SET price = EXCLUDED.price;
-		`
-		_, err := s.db.Exec(ctx, query, t, p.Price, p.Currency, p.Source)
-		if err != nil {
-			log.Printf("Error inserting price: %v\n", err)
+	// 1. PVPC (Prices)
+	resp, err := client.FetchData("mercados", "precios-mercados-tiempo-real", start, end, "hour")
+	if err != nil {
+		log.Printf("Error fetching prices: %v", err)
+		return
+	}
+
+	for _, included := range resp.Included {
+		log.Printf("Processing %s", included.Attributes.Title)
+		for _, v := range included.Attributes.Values {
+			// Parse Time
+			t, err := time.Parse("2006-01-02T15:04:05.000-07:00", v.Datetime)
+			if err != nil {
+				// Try another format just in case
+				t, err = time.Parse("2006-01-02T15:04:05", v.Datetime)
+				if err != nil {
+					log.Printf("Error parsing date %s: %v", v.Datetime, err)
+					continue 
+				}
+			}
+			
+			// Log as requested
+			log.Printf("[%s] Time: %s, Value: %.2f", included.Attributes.Title, t.Format(time.DateTime), v.Value)
+
+			// Save to DB
+			query := `
+				INSERT INTO raw_data.market_prices (time, price, currency, unit, source)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (time, source) DO UPDATE 
+				SET price = EXCLUDED.price;
+			`
+			_, err = s.db.Exec(ctx, query, t, v.Value, "EUR", "€/MWh", "REE_PVPC")
+			if err != nil {
+				log.Printf("Error inserting price: %v\n", err)
+			}
 		}
 	}
-	log.Println("Market prices saved successfully.")
+	
+	// Fetch and Log other data types as requested
+	// Fetch and Save other data types as requested
+	s.fetchAndSaveEnergyData(ctx, client, start, end)
+	
+	log.Println("Market prices and energy data saved.")
+}
+
+func (s *Ingestor) ensureSchema(ctx context.Context) error {
+	queries := []string{
+		// 1. Create Schema
+		"CREATE SCHEMA IF NOT EXISTS raw_data;",
+		
+		// 2. Tables within raw_data schema
+		`CREATE TABLE IF NOT EXISTS raw_data.market_prices (
+			time TIMESTAMPTZ NOT NULL,
+			price DOUBLE PRECISION NOT NULL,
+			currency TEXT NOT NULL,
+			unit TEXT DEFAULT '€/MWh',
+			source TEXT NOT NULL,
+			PRIMARY KEY (time, source)
+		);`,
+		`CREATE TABLE IF NOT EXISTS raw_data.energy_metrics (
+			time TIMESTAMPTZ NOT NULL,
+			metric_name TEXT NOT NULL,
+			value DOUBLE PRECISION NOT NULL,
+			unit TEXT,
+			source TEXT NOT NULL,
+			PRIMARY KEY (time, metric_name, source)
+		);`,
+		// Ensure TimescaleDB hypertable
+		"SELECT create_hypertable('raw_data.market_prices', 'time', if_not_exists => TRUE, migrate_data => TRUE);", 
+		"SELECT create_hypertable('raw_data.energy_metrics', 'time', if_not_exists => TRUE, migrate_data => TRUE);",
+	}
+
+	for _, q := range queries {
+		if _, err := s.db.Exec(ctx, q); err != nil {
+			// Start price fetcher even if hypertable creation fails (e.g. extension not installed)
+			log.Printf("Warning executing DB query '%s': %v", q, err)
+		}
+	}
+	return nil
+}
+
+func (s *Ingestor) fetchAndSaveEnergyData(ctx context.Context, client *reddata.Client, start, end time.Time) {
+	// 2. Generation Mix
+	s.fetchAndSaveGeneric(ctx, client, "generacion", "estructura-generacion", start, end)
+	
+	// 3. Demand
+	s.fetchAndSaveGeneric(ctx, client, "demanda", "evolucion", start, end)
+	
+	// 4. CO2 Emissions
+	s.fetchAndSaveGeneric(ctx, client, "generacion", "no-renovables-detalle-emisiones", start, end)
+}
+
+func (s *Ingestor) fetchAndSaveGeneric(ctx context.Context, client *reddata.Client, category, widget string, start, end time.Time) {
+	resp, err := client.FetchData(category, widget, start, end, "hour")
+	if err != nil {
+		log.Printf("Error fetching %s/%s: %v", category, widget, err)
+		return
+	}
+	
+	for _, included := range resp.Included {
+		// Group by Name (Title)
+		// included.Attributes.Title is the metric name (e.g. "Solar fotovoltaica", "Demanda real")
+		for _, v := range included.Attributes.Values {
+			t, err := time.Parse("2006-01-02T15:04:05.000-07:00", v.Datetime)
+			if err != nil {
+				t, err = time.Parse("2006-01-02T15:04:05", v.Datetime)
+				if err != nil {
+					log.Printf("Error parsing date %s: %v", v.Datetime, err)
+					continue
+				}
+			}
+
+			// Save to DB
+			query := `
+				INSERT INTO raw_data.energy_metrics (time, metric_name, value, unit, source)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (time, metric_name, source) DO UPDATE 
+				SET value = EXCLUDED.value;
+			`
+			// Unit is unknown for now, leaving empty or could try to infer
+			_, err = s.db.Exec(ctx, query, t, included.Attributes.Title, v.Value, "", "REE_API")
+			if err != nil {
+				log.Printf("Error inserting metric %s: %v\n", included.Attributes.Title, err)
+			}
+		}
+	}
+	log.Printf("Saved data for %s/%s", category, widget)
 }
 
 type MarketPrice struct {
@@ -108,23 +247,5 @@ type MarketPrice struct {
 	Source   string
 }
 
-func simulateVerifyExternalAPI() []MarketPrice {
-	now := time.Now().Truncate(time.Hour)
-	var prices []MarketPrice
-	// Generate 24 hours of data
-	for i := 0; i < 24; i++ {
-		t := now.Add(time.Duration(i) * time.Hour)
-		// Random price between -10 and 100
-		// Note: rand.Float64() uses global rand, seeded by default with 1 (deterministic).
-		// For simulation it's fine.
-		val := (float64(time.Now().UnixNano()%110) - 10) // simple pseudo-random based on time
-		
-		prices = append(prices, MarketPrice{
-			Time:     t,
-			Price:    val,
-			Currency: "EUR",
-			Source:   "SIMULATED_ENTSO_E",
-		})
-	}
-	return prices
-}
+// simulateVerifyExternalAPI removed
+

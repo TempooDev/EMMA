@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"emma/ingestor/internal/api"
 	"emma/ingestor/internal/config"
 	"emma/ingestor/internal/infrastructure/database"
 	"emma/ingestor/internal/infrastructure/messaging"
@@ -37,6 +38,9 @@ func main() {
 	
 	// Start background jobs
 	go ingestor.StartPriceFetcher(ctx)
+
+	// Start API Server (HTTP)
+	go api.StartServer(ctx)
 
 	if err := ingestor.Start(ctx); err != nil {
 		log.Fatalf("Ingestor service failed: %v", err)

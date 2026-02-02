@@ -31,8 +31,11 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                     longitude DOUBLE PRECISION
                 );
 
+                -- 1b. Create raw_data schema
+                CREATE SCHEMA IF NOT EXISTS raw_data;
+
                 -- 2. Table for raw telemetry data (Time-series data)
-                CREATE TABLE IF NOT EXISTS public.telemetry_raw (
+                CREATE TABLE IF NOT EXISTS raw_data.telemetry_raw (
                     time TIMESTAMP WITH TIME ZONE NOT NULL,
                     device_id VARCHAR(50) REFERENCES public.devices(device_id) ON DELETE CASCADE,
                     data_type VARCHAR(50) NOT NULL,
@@ -41,10 +44,10 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                 );
 
                 -- 3. Create the Hypertable (Requires TimescaleDB extension)
-                SELECT create_hypertable('telemetry_raw', 'time', if_not_exists => TRUE);
+                SELECT create_hypertable('raw_data.telemetry_raw', 'time', if_not_exists => TRUE);
 
                 -- 4. Create index for faster querying by device_id and time
-                CREATE INDEX IF NOT EXISTS telemetry_raw_device_time_idx ON public.telemetry_raw (device_id, time DESC);
+                CREATE INDEX IF NOT EXISTS telemetry_raw_device_time_idx ON raw_data.telemetry_raw (device_id, time DESC);
 
                 -- 5. Energy Communities
                 CREATE TABLE IF NOT EXISTS energy_communities (

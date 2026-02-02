@@ -20,7 +20,8 @@ var ingest = builder.AddGolangApp("ingest", "../EMMA.Ingest")
     .WithReference(emma_db)
     .WaitFor(emma_db)
     .WithReference(kafka)
-    .WaitFor(kafka);
+    .WaitFor(kafka)
+    .WithHttpEndpoint(env: "PORT", name: "http");
 
 var server = builder.AddProject<Projects.EMMA_Server>("server")
     .WithHttpHealthCheck("/health")
