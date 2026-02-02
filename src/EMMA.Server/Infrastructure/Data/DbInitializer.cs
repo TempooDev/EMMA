@@ -121,6 +121,13 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
 
                 -- 12. Hypertable for market_prices
                 SELECT create_hypertable('market_prices', 'time', if_not_exists => TRUE);
+
+                 -- 13. Processed Messages (Idempotency)
+                CREATE TABLE IF NOT EXISTS processed_messages (
+                    event_id UUID PRIMARY KEY,
+                    processed_at TIMESTAMPTZ DEFAULT NOW(),
+                    consumer_group TEXT
+                );
             ";
 
             await connection.ExecuteAsync(sql);

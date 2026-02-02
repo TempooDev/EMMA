@@ -20,12 +20,18 @@ var simulator = builder.AddPythonApp("energy-simulator", "../energy-simulator", 
     .WithEnvironment("MQTT_BROKER_URL", mqttBridge.GetEndpoint("mqtt-port"))
     .WaitFor(mqttBridge);
 
-var ingest = builder.AddGolangApp("ingest", "../EMMA.Ingest")
+var marketingestor = builder.AddGolangApp("market-ingestor", "../EMMA.Ingest")
     .WithReference(emma_db)
     .WaitFor(emma_db)
     .WithReference(kafka)
     .WaitFor(kafka)
     .WithHttpEndpoint(env: "PORT", name: "http");
+
+var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
+    .WithReference(emma_db)
+    .WithReference(kafka)
+    .WaitFor(emma_db)
+    .WaitFor(kafka);
 
 var server = builder.AddProject<Projects.EMMA_Server>("server")
     .WithHttpHealthCheck("/health")
