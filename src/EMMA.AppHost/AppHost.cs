@@ -16,6 +16,10 @@ var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-brid
                         .WithEnvironment("KAFKA_TOPIC", "telemetry-raw")
                         .WithEndpoint(targetPort: 1883, name: "mqtt-port");
 
+var simulator = builder.AddPythonApp("energy-simulator", "../energy-simulator", "main.py")
+    .WithEnvironment("MQTT_BROKER_URL", mqttBridge.GetEndpoint("mqtt-port"))
+    .WaitFor(mqttBridge);
+
 var ingest = builder.AddGolangApp("ingest", "../EMMA.Ingest")
     .WithReference(emma_db)
     .WaitFor(emma_db)
