@@ -90,4 +90,42 @@ public static class SchemaSql
         );";
 
     public const string AssetMetricsCompression = "PERFORM add_compression_policy('asset_metrics', INTERVAL '30 days');";
+
+    public const string AssetMetricsHourly = @"
+        CREATE MATERIALIZED VIEW IF NOT EXISTS asset_metrics_hourly
+        WITH (timescaledb.continuous) AS
+        SELECT
+            time_bucket('1 hour', time) AS bucket,
+            asset_id,
+            MIN(power_kw) AS min_power,
+            MAX(power_kw) AS max_power,
+            AVG(power_kw) AS avg_power,
+            MAX(energy_total_kwh) - MIN(energy_total_kwh) AS total_energy_kwh
+        FROM asset_metrics
+        GROUP BY bucket, asset_id;
+
+        SELECT add_continuous_aggregate_policy('asset_metrics_hourly',
+            start_offset => INTERVAL '1 month',
+            end_offset => INTERVAL '1 hour',
+            schedule_interval => INTERVAL '10 minutes',
+            if_not_exists => TRUE);";
+
+    public const string AssetMetricsDaily = @"
+        CREATE MATERIALIZED VIEW IF NOT EXISTS asset_metrics_daily
+        WITH (timescaledb.continuous) AS
+        SELECT
+            time_bucket('1 day', time) AS bucket,
+            asset_id,
+            MIN(power_kw) AS min_power,
+            MAX(power_kw) AS max_power,
+            AVG(power_kw) AS avg_power,
+            MAX(energy_total_kwh) - MIN(energy_total_kwh) AS total_energy_kwh
+        FROM asset_metrics
+        GROUP BY bucket, asset_id;
+
+        SELECT add_continuous_aggregate_policy('asset_metrics_daily',
+            start_offset => INTERVAL '1 year',
+            end_offset => INTERVAL '1 day',
+            schedule_interval => INTERVAL '1 hour',
+            if_not_exists => TRUE);";
 }
