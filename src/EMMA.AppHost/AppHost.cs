@@ -43,4 +43,8 @@ var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
     .WaitFor(server);
 
+var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-service")
+    .WithReference(kafka)
+    .WaitFor(kafka);
+
 builder.Build().Run();
