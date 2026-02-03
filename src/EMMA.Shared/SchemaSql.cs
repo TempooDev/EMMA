@@ -165,4 +165,15 @@ public static class SchemaSql
         );
         SELECT create_hypertable('interconnection_flows', 'at_time', if_not_exists => TRUE);
         CREATE INDEX IF NOT EXISTS interconnection_flows_time_idx ON interconnection_flows (at_time DESC);";
+
+    public const string OptimizationSchedules = @"
+        CREATE TABLE IF NOT EXISTS optimization_schedules (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            at_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            target_hour TIMESTAMPTZ NOT NULL,
+            action TEXT NOT NULL,
+            reason TEXT,
+            status TEXT DEFAULT 'PENDING'
+        );
+        CREATE INDEX IF NOT EXISTS optimization_schedules_time_idx ON optimization_schedules (target_hour DESC);";
 }

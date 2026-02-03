@@ -67,4 +67,10 @@ var solarForecaster = builder.AddPythonApp("solar-forecaster", "../EMMA.SolarFor
     .WithReference(kafka)
     .WaitFor(emma_db);
 
+var optimizer = builder.AddPythonApp("optimizer", "../EMMA.Optimizer", "main.py")
+    .WithReference(emma_db)
+    .WithReference(kafka)
+    .WaitFor(emma_db)
+    .WaitFor(solarForecaster);
+
 builder.Build().Run();
