@@ -14,7 +14,11 @@ builder.AddServiceDefaults();
 
 // Database
 builder.Services.AddDbContext<IdentityDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("emma-db")));
+{
+    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    options.UseNpgsql(connectionString);
+});
 
 // Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options => {
@@ -27,7 +31,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => {
 .AddDefaultTokenProviders();
 
 // Authentication & JWT
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "a-very-long-secret-key-that-should-be-in-config";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

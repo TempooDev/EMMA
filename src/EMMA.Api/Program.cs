@@ -19,7 +19,11 @@ builder.Services.AddOpenApi();
 
 // Dapper / Npgsql
 builder.Services.AddSingleton<NpgsqlDataSource>(sp => 
-    NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("emma-db")!));
+{
+    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    return NpgsqlDataSource.Create(connectionString);
+});
 
 // Repositories
 builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
@@ -32,7 +36,7 @@ builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddHttpContextAccessor();
 
 // Authentication & JWT
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "a-very-long-secret-key-that-should-be-in-config";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

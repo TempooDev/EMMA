@@ -9,6 +9,8 @@ var emma_db = postgresql.AddDatabase("emma-db");
 var kafka = builder.AddKafka("messaging")
     .WithKafkaUI();
 
+var jwtKey = builder.AddParameter("jwt-key", secret: true);
+
 var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-bridge")
                         .WithReference(kafka)
                         .WaitFor(kafka)
@@ -50,10 +52,12 @@ var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-s
 var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
     .WithReference(emma_db)
     .WithReference(kafka) // if needed later
+    .WithEnvironment("Jwt__Key", jwtKey)
     .WaitFor(emma_db);
 
 var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
     .WithReference(emma_db)
+    .WithEnvironment("Jwt__Key", jwtKey)
     .WaitFor(emma_db);
 
 builder.Build().Run();

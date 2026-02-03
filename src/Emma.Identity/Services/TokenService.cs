@@ -24,7 +24,8 @@ public class TokenService(IConfiguration configuration) : ITokenService
             new("assigned_assets", user.AssignedAssets ?? "")
         };
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"] ?? "a-very-long-secret-key-that-should-be-in-config"));
+        var jwtKey = configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var expires = DateTime.UtcNow.AddHours(2);
 
