@@ -1,6 +1,7 @@
 using Dapper;
 using EMMA.Ingestion.Extensions;
 using EMMA.Ingestion.Models;
+using EMMA.Shared;
 using Npgsql;
 using Polly.Retry;
 
@@ -11,11 +12,6 @@ public class TelemetryRepository : ITelemetryRepository
     private readonly NpgsqlDataSource _dataSource;
     private readonly ILogger<TelemetryRepository> _logger;
     private readonly AsyncRetryPolicy _retryPolicy;
-
-    private const string InsertSql = @"
-        INSERT INTO asset_metrics (time, asset_id, power_kw, energy_total_kwh, temperature)
-        VALUES (@Time, @AssetId, @Power, @Energy, @Temperature)
-        ON CONFLICT (time, asset_id) DO NOTHING;";
 
     public TelemetryRepository(NpgsqlDataSource dataSource, ILogger<TelemetryRepository> logger)
     {
@@ -30,13 +26,23 @@ public class TelemetryRepository : ITelemetryRepository
         {
             using var connection = await _dataSource.OpenConnectionAsync(token);
             using var transaction = await connection.BeginTransactionAsync(token);
-            
-            try 
+
+            try
             {
                 // Dapper executeAsync loops over the collection.
                 // For thousands of items, this might be slower than COPY, 
                 // but requirement was explicitly Dapper + INSERT ON CONFLICT.
-                await connection.ExecuteAsync(InsertSql, metrics, transaction: transaction);
+
+                var entities = metrics.Select(m => new
+                {
+                    m.Time,
+                    m.AssetId,
+                    PowerKw = m.Power,
+                    EnergyTotalKwh = m.Energy,
+                    m.Temperature
+                });
+
+                await connection.ExecuteAsync(Queries.InsertAssetMetric, entities, transaction: transaction);
                 await transaction.CommitAsync(token);
             }
             catch

@@ -5,6 +5,7 @@ using Confluent.Kafka;
 using Dapper;
 using EMMA.Ingestion.Data; // Added
 using EMMA.Ingestion.Models; // Added
+using EMMA.Shared;
 using Npgsql;
 using NpgsqlTypes;
 
@@ -32,7 +33,7 @@ public class Worker : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.Yield();
-        
+
         var channel = Channel.CreateBounded<ConsumeResult<string, string>>(new BoundedChannelOptions(ChannelCapacity)
         {
             SingleReader = true,
@@ -88,7 +89,7 @@ public class Worker : BackgroundService
     private async Task ProcessLoop(ChannelReader<ConsumeResult<string, string>> reader, CancellationToken token)
     {
         var batch = new List<ConsumeResult<string, string>>(BatchSize);
-        
+
         while (await reader.WaitToReadAsync(token))
         {
             batch.Clear();
@@ -105,22 +106,22 @@ public class Worker : BackgroundService
                     if (batch.Count > 0)
                     {
                         var remaining = BatchTimeout - timer.Elapsed;
-                        if (remaining <= TimeSpan.Zero) break; 
+                        if (remaining <= TimeSpan.Zero) break;
 
                         using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
                         cts.CancelAfter(remaining);
-                        try 
+                        try
                         {
                             if (!await reader.WaitToReadAsync(cts.Token)) break;
                         }
                         catch (OperationCanceledException)
                         {
-                            break; 
+                            break;
                         }
                     }
                     else
                     {
-                         break; 
+                        break;
                     }
                 }
             }
@@ -135,7 +136,7 @@ public class Worker : BackgroundService
     private async Task ProcessBatchAsync(List<ConsumeResult<string, string>> batch, CancellationToken token)
     {
         using var logScope = _logger.BeginScope("Batch processing count={Count}", batch.Count);
-        
+
         var parsedMessages = new List<(Guid EventId, string AssetId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
 
         foreach (var item in batch)
@@ -165,7 +166,7 @@ public class Worker : BackgroundService
             // Idempotency: Filter duplicates by event_id
             var eventIds = parsedMessages.Select(m => m.EventId).ToArray();
             var existingIds = await connection.QueryAsync<Guid>(
-                "SELECT event_id FROM processed_messages WHERE event_id = ANY(@EventIds) FOR UPDATE SKIP LOCKED",
+                Queries.SelectPendingEvents,
                 new { EventIds = eventIds },
                 transaction: transaction);
 
@@ -177,21 +178,24 @@ public class Worker : BackgroundService
                 // 1. Upsert Device Info (Location etc)
                 var distinctDevices = newMessages
                     .GroupBy(m => m.AssetId)
-                    .Select(g => new 
-                    { 
-                        DeviceId = g.Key, 
+                    .Select(g => new
+                    {
+                        DeviceId = g.Key,
                         Latitude = g.FirstOrDefault(x => x.Latitude.HasValue).Latitude,
                         Longitude = g.FirstOrDefault(x => x.Longitude.HasValue).Longitude
                     })
                     .ToList();
 
-                await connection.ExecuteAsync(@"
-                    INSERT INTO public.devices (device_id, model_name, latitude, longitude)
-                    VALUES (@DeviceId, 'Unknown Model', @Latitude, @Longitude)
-                    ON CONFLICT (device_id) DO UPDATE 
-                    SET latitude = COALESCE(EXCLUDED.latitude, devices.latitude),
-                        longitude = COALESCE(EXCLUDED.longitude, devices.longitude);",
-                    distinctDevices,
+                var devicesPayload = distinctDevices.Select(d => new
+                {
+                    d.DeviceId,
+                    ModelName = "Unknown Model",
+                    d.Latitude,
+                    d.Longitude
+                });
+
+                await connection.ExecuteAsync(Queries.InsertDevice,
+                    devicesPayload,
                     transaction: transaction);
 
                 // 2. Persist Metrics via Repository (Replacing Refined Table Insert)
@@ -217,7 +221,7 @@ public class Worker : BackgroundService
                         metrics.Add(new AssetMetric(msg.Timestamp, msg.AssetId, power, energy, temp));
                     }
                 }
-                
+
                 // Call Repository used for Issue #6 (Poly resilient Dapper INSERT)
                 // Note: We are using a separate connection managed by Repository internal retry policy?
                 // Actually repository uses _dataSource.OpenConnectionAsync.
@@ -241,7 +245,7 @@ public class Worker : BackgroundService
                 // That's acceptable (at-least-once).
                 // If `processed_messages` succeeds but repository fails -> Exception -> rollback processed -> consistent (nothing saved).
                 // Wait. `processed_messages` insert is BELOW.
-                
+
                 await _repository.SaveMetricsAsync(metrics, token);
 
                 // 3. Mark as Processed (Idempotency) - COPY
@@ -265,7 +269,7 @@ public class Worker : BackgroundService
             else
             {
                 await transaction.CommitAsync(token);
-                 _logger.LogInformation("All duplicates.");
+                _logger.LogInformation("All duplicates.");
             }
         }
         catch (Exception ex)
@@ -290,7 +294,7 @@ public class Worker : BackgroundService
         }
 
         if (!Guid.TryParse(eventIdElem.GetString(), out eventId)) return false;
-        
+
         assetId = assetIdElem.GetString() ?? string.Empty;
         if (string.IsNullOrEmpty(assetId)) return false;
 
@@ -302,11 +306,11 @@ public class Worker : BackgroundService
 
         if (root.TryGetProperty("location", out var location))
         {
-             if (location.TryGetProperty("latitude", out var latElem) && latElem.ValueKind == JsonValueKind.Number)
-                 latitude = latElem.GetDouble();
-             
-             if (location.TryGetProperty("longitude", out var lonElem) && lonElem.ValueKind == JsonValueKind.Number)
-                 longitude = lonElem.GetDouble();
+            if (location.TryGetProperty("latitude", out var latElem) && latElem.ValueKind == JsonValueKind.Number)
+                latitude = latElem.GetDouble();
+
+            if (location.TryGetProperty("longitude", out var lonElem) && lonElem.ValueKind == JsonValueKind.Number)
+                longitude = lonElem.GetDouble();
         }
 
         return true;

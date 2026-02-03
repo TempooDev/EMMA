@@ -1,4 +1,5 @@
 using Dapper;
+using EMMA.Shared;
 using Npgsql;
 
 namespace EMMA.Server.Infrastructure.Data;
@@ -22,29 +23,7 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
         // So we should time_bucket the asset metrics by @Bucket, but join market prices by matching the hour?
         // Yes, market prices are hourly.
 
-        var sql = @"
-            WITH metric_data AS (
-                SELECT time_bucket(@Bucket::interval, time) as bucket_time, AVG(power_kw) as avg_power
-                FROM asset_metrics
-                WHERE time BETWEEN @Start AND @End
-                GROUP BY bucket_time
-            ),
-            price_data AS (
-                SELECT time_bucket(@Bucket::interval, time) as bucket_time, AVG(price) as avg_price
-                FROM market_prices
-                WHERE time BETWEEN @Start AND @End
-                GROUP BY bucket_time
-            )
-            SELECT 
-                COALESCE(m.bucket_time, p.bucket_time) as Time,
-                m.avg_power as PowerKw,
-                p.avg_price as PricePerMwh
-            FROM metric_data m
-            FULL OUTER JOIN price_data p ON m.bucket_time = p.bucket_time
-            ORDER BY Time ASC;
-        ";
-
-        return await connection.QueryAsync<EnergyMixDto>(sql, new { Start = start, End = end, Bucket = bucket });
+        return await connection.QueryAsync<EnergyMixDto>(Queries.GetEnergyMix, new { Start = start, End = end, Bucket = bucket });
     }
     public async Task<IEnumerable<DeviceStatusDto>> GetDeviceStatusAsync(CancellationToken ct)
     {
@@ -52,24 +31,7 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
 
         // Fetch devices and their LATEST metric (using DISTINCT ON for efficiency in Postgres)
         // Note: DISTINCT ON (asset_id) ORDER BY asset_id, time DESC gives the last row per asset.
-        var sql = @"
-            SELECT 
-                d.device_id as DeviceId,
-                d.latitude as Latitude,
-                d.longitude as Longitude,
-                m.power_kw as CurrentPowerKw,
-                m.time as LastUpdated
-            FROM devices d
-            LEFT JOIN LATERAL (
-                SELECT power_kw, time 
-                FROM asset_metrics 
-                WHERE asset_id = d.device_id 
-                ORDER BY time DESC 
-                LIMIT 1
-            ) m ON true;
-        ";
-
-        return await connection.QueryAsync<DeviceStatusDto>(sql);
+        return await connection.QueryAsync<DeviceStatusDto>(Queries.GetDeviceStatus);
     }
 }
 

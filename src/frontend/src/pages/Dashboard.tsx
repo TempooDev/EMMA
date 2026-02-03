@@ -84,6 +84,19 @@ export function Dashboard() {
     fetchData();
   }, [startDate, endDate, bucket]);  // Refetch when bucket changes too
 
+  const formatTick = (unixTime: number) => {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    const date = new Date(unixTime);
+
+    if (end - start > oneDay) {
+      // Show Date + Time for multi-day ranges
+      return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <div className="dashboard-container" style={{ padding: '20px', color: '#eee' }}>
@@ -140,7 +153,7 @@ export function Dashboard() {
                 dataKey="timestamp"
                 type="number"
                 domain={['dataMin', 'dataMax']}
-                tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                tickFormatter={formatTick}
                 stroke="#ccc"
                 angle={-45}
                 textAnchor="end"
@@ -154,7 +167,7 @@ export function Dashboard() {
                 contentStyle={{ backgroundColor: '#333', border: 'none', color: '#fff' }}
               />
               <Legend verticalAlign="top" />
-              <Brush dataKey="timestamp" height={30} stroke="#8884d8" fill="#1e1e1e" tickFormatter={(unixTime) => new Date(unixTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} />
+              <Brush dataKey="timestamp" height={30} stroke="#8884d8" fill="#1e1e1e" tickFormatter={formatTick} />
               <Area yAxisId="left" type="monotone" dataKey="powerKw" fill="#8884d8" stroke="#8884d8" name="Power Generation" fillOpacity={0.3} />
               <Line yAxisId="right" type="monotone" dataKey="pricePerMwh" stroke="#ff7300" name="Market Price" dot={false} strokeWidth={2} />
             </ComposedChart>
