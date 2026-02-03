@@ -8,7 +8,7 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
     public async Task<IEnumerable<EnergyMixDto>> GetEnergyMixAsync(DateTimeOffset start, DateTimeOffset end, string bucket, CancellationToken ct)
     {
         using var connection = await dataSource.OpenConnectionAsync(ct);
-        
+
         // Validate bucket to prevent SQL injection (allowlist)
         var allowedBuckets = new HashSet<string> { "5 seconds", "30 seconds", "1 minute", "5 minutes", "15 minutes", "30 minutes", "1 hour", "1 day" };
         if (!allowedBuckets.Contains(bucket))
@@ -21,20 +21,27 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
         // Actually, market prices are hourly. If we zoom into 5 seconds, we still want the hourly price.
         // So we should time_bucket the asset metrics by @Bucket, but join market prices by matching the hour?
         // Yes, market prices are hourly.
-        
+
         var sql = @"
-            SELECT 
-                m.bucket_time as Time,
-                m.avg_power as PowerKw,
-                p.price as PricePerMwh
-            FROM (
+            WITH metric_data AS (
                 SELECT time_bucket(@Bucket::interval, time) as bucket_time, AVG(power_kw) as avg_power
                 FROM asset_metrics
                 WHERE time BETWEEN @Start AND @End
                 GROUP BY bucket_time
-            ) m
-            LEFT JOIN market_prices p ON time_bucket('1 hour', m.bucket_time) = time_bucket('1 hour', p.time)
-            ORDER BY m.bucket_time ASC;
+            ),
+            price_data AS (
+                SELECT time_bucket(@Bucket::interval, time) as bucket_time, AVG(price) as avg_price
+                FROM market_prices
+                WHERE time BETWEEN @Start AND @End
+                GROUP BY bucket_time
+            )
+            SELECT 
+                COALESCE(m.bucket_time, p.bucket_time) as Time,
+                m.avg_power as PowerKw,
+                p.avg_price as PricePerMwh
+            FROM metric_data m
+            FULL OUTER JOIN price_data p ON m.bucket_time = p.bucket_time
+            ORDER BY Time ASC;
         ";
 
         return await connection.QueryAsync<EnergyMixDto>(sql, new { Start = start, End = end, Bucket = bucket });
@@ -42,7 +49,7 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
     public async Task<IEnumerable<DeviceStatusDto>> GetDeviceStatusAsync(CancellationToken ct)
     {
         using var connection = await dataSource.OpenConnectionAsync(ct);
-        
+
         // Fetch devices and their LATEST metric (using DISTINCT ON for efficiency in Postgres)
         // Note: DISTINCT ON (asset_id) ORDER BY asset_id, time DESC gives the last row per asset.
         var sql = @"
