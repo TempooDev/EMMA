@@ -52,4 +52,8 @@ var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
     .WithReference(kafka) // if needed later
     .WaitFor(emma_db);
 
+var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
+    .WithReference(emma_db)
+    .WaitFor(emma_db);
+
 builder.Build().Run();
