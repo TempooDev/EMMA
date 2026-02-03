@@ -69,6 +69,8 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.UseMiddleware<EMMA.Api.Infrastructure.Logging.AuditMiddleware>();
+
 // Endpoints
 app.MapAssetEndpoints();
 app.MapMarketEndpoints();

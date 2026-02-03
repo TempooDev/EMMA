@@ -137,4 +137,19 @@ public static class SchemaSql
             end_offset => INTERVAL '1 day',
             schedule_interval => INTERVAL '1 hour',
             if_not_exists => TRUE);";
+
+    public const string AuditLogs = @"
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            user_id TEXT,
+            tenant_id TEXT,
+            action TEXT NOT NULL,
+            path TEXT NOT NULL,
+            method TEXT NOT NULL,
+            payload JSONB,
+            status_code INT
+        );
+        CREATE INDEX IF NOT EXISTS audit_logs_timestamp_idx ON audit_logs (timestamp DESC);
+        CREATE INDEX IF NOT EXISTS audit_logs_tenant_idx ON audit_logs (tenant_id);";
 }
