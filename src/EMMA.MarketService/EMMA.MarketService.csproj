@@ -4,15 +4,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-EMMA.Ingestion-cfbb58c0-3c87-4889-86fe-c927c78e6a37</UserSecretsId>
+    <UserSecretsId>dotnet-EMMA.MarketService-bf350ecf-9da1-4eec-8ac6-340ee56da89e</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Confluent.Kafka" Version="13.1.0" />
     <PackageReference Include="Aspire.Npgsql" Version="13.1.0" />
+    <PackageReference Include="Confluent.Kafka" Version="2.13.0" />
     <PackageReference Include="Dapper" Version="2.1.66" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.2" />
-    <PackageReference Include="Polly" Version="8.6.5" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.2" />
   </ItemGroup>
 
   <ItemGroup>

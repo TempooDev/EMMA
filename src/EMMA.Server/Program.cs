@@ -1,5 +1,6 @@
 using Npgsql;
 using EMMA.Server.Infrastructure.Data;
+using EMMA.Server.Endpoints; // Added Namespace
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<NpgsqlDataSource>(sp => 
     NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("emma-db")!));
 builder.Services.AddHostedService<DbInitializer>();
+builder.Services.AddSingleton<DashboardRepository>(); // Added Repo
 
 var app = builder.Build();
 
@@ -47,6 +49,7 @@ api.MapGet("weatherforecast", () =>
 .WithName("GetWeatherForecast");
 
 app.MapDefaultEndpoints();
+app.MapDashboardEndpoints(); // Added Endpoints
 
 app.UseFileServer();
 

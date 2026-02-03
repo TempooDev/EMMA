@@ -3,6 +3,8 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Confluent.Kafka;
 using Dapper;
+using EMMA.Ingestion.Data; // Added
+using EMMA.Ingestion.Models; // Added
 using Npgsql;
 using NpgsqlTypes;
 
@@ -13,16 +15,18 @@ public class Worker : BackgroundService
     private readonly ILogger<Worker> _logger;
     private readonly IConsumer<string, string> _consumer;
     private readonly NpgsqlDataSource _dataSource;
+    private readonly ITelemetryRepository _repository; // Added
     private const string Topic = "telemetry-raw";
     private const int BatchSize = 100;
     private const int ChannelCapacity = 1000;
     private static readonly TimeSpan BatchTimeout = TimeSpan.FromSeconds(5);
 
-    public Worker(ILogger<Worker> logger, IConsumer<string, string> consumer, NpgsqlDataSource dataSource)
+    public Worker(ILogger<Worker> logger, IConsumer<string, string> consumer, NpgsqlDataSource dataSource, ITelemetryRepository repository)
     {
         _logger = logger;
         _consumer = consumer;
         _dataSource = dataSource;
+        _repository = repository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -158,7 +162,7 @@ public class Worker : BackgroundService
             using var connection = await _dataSource.OpenConnectionAsync(token);
             using var transaction = await connection.BeginTransactionAsync(token);
 
-            // Idempotency
+            // Idempotency: Filter duplicates by event_id
             var eventIds = parsedMessages.Select(m => m.EventId).ToArray();
             var existingIds = await connection.QueryAsync<Guid>(
                 "SELECT event_id FROM processed_messages WHERE event_id = ANY(@EventIds) FOR UPDATE SKIP LOCKED",
@@ -170,13 +174,12 @@ public class Worker : BackgroundService
 
             if (newMessages.Count > 0)
             {
-                // Devices (Upsert Latitude/Longitude)
+                // 1. Upsert Device Info (Location etc)
                 var distinctDevices = newMessages
                     .GroupBy(m => m.AssetId)
                     .Select(g => new 
                     { 
                         DeviceId = g.Key, 
-                        // Take first non-null location in batch
                         Latitude = g.FirstOrDefault(x => x.Latitude.HasValue).Latitude,
                         Longitude = g.FirstOrDefault(x => x.Longitude.HasValue).Longitude
                     })
@@ -191,36 +194,58 @@ public class Worker : BackgroundService
                     distinctDevices,
                     transaction: transaction);
 
-                // Telemetry
-                using (var writer = await connection.BeginBinaryImportAsync(
-                    "COPY raw_data.telemetry_raw (time, device_id, data_type, value, unit) FROM STDIN (FORMAT BINARY)"))
+                // 2. Persist Metrics via Repository (Replacing Refined Table Insert)
+                // Map to AssetMetric
+                var metrics = new List<AssetMetric>(newMessages.Count);
+                foreach (var msg in newMessages)
                 {
-                    foreach (var msg in newMessages)
+                    if (msg.Root.TryGetProperty("measurements", out var measurements))
                     {
-                        if (msg.Root.TryGetProperty("measurements", out var measurements))
-                        {
-                            foreach (var property in measurements.EnumerateObject())
-                            {
-                                if (property.Value.ValueKind == JsonValueKind.Number)
-                                {
-                                    var val = property.Value.GetDouble();
-                                    var type = property.Name;
-                                    var unit = type.Contains('_') ? type.Split('_').Last() : "unknown";
+                        double? power = null;
+                        double? energy = null;
+                        double? temp = null;
 
-                                    await writer.StartRowAsync(token);
-                                    await writer.WriteAsync(msg.Timestamp.UtcDateTime, NpgsqlDbType.TimestampTz, token);
-                                    await writer.WriteAsync(msg.AssetId, NpgsqlDbType.Varchar, token);
-                                    await writer.WriteAsync(type, NpgsqlDbType.Varchar, token);
-                                    await writer.WriteAsync(val, NpgsqlDbType.Double, token);
-                                    await writer.WriteAsync(unit, NpgsqlDbType.Varchar, token);
-                                }
-                            }
-                        }
+                        if (measurements.TryGetProperty("power_kw", out var pElem) && pElem.ValueKind == JsonValueKind.Number)
+                            power = pElem.GetDouble();
+
+                        if (measurements.TryGetProperty("energy_total_kwh", out var eElem) && eElem.ValueKind == JsonValueKind.Number)
+                            energy = eElem.GetDouble();
+
+                        if (measurements.TryGetProperty("inverter_temp_c", out var tElem) && tElem.ValueKind == JsonValueKind.Number)
+                            temp = tElem.GetDouble();
+
+                        metrics.Add(new AssetMetric(msg.Timestamp, msg.AssetId, power, energy, temp));
                     }
-                    await writer.CompleteAsync(token);
                 }
+                
+                // Call Repository used for Issue #6 (Poly resilient Dapper INSERT)
+                // Note: We are using a separate connection managed by Repository internal retry policy?
+                // Actually repository uses _dataSource.OpenConnectionAsync.
+                // WE ARE IN A TRANSACTION HERE for processed_messages and devices.
+                // The repository opens its OWN connection/transaction.
+                // This breaks the single atomic transaction assurance for the whole batch including `processed_messages`.
+                // However, `processed_messages` and `devices` uses `transaction` created above.
+                // `SaveMetricsAsync` uses its own connection.
+                // The requirement asked for "Resilience (Polly)... handle transient database connection failures".
+                // If we pass the transaction to the repository, we can't easily retry the whole transaction inside the repository without re-running the outer logic.
+                // So separating them (eventual consistency) is acceptable given the need for Retry Policy on the Metric Insert.
+                // OR we move everything to Repository?
+                // For now, I will call repository here. If metrics fail, we might successfully mark valid IDs as processed?
+                // Check flow:
+                // If repository fails (after retries), we throw. 
+                // The outer exception catch logs it. The transaction (devices/processed) is NOT committed because `transaction.CommitAsync` is at the end.
+                // So if repository throws, we rollback `devices` and `processed_messages`. Correct.
+                // BUT, repository actions are already committed?
+                // Repository `SaveMetricsAsync` uses `ExecuteAsync` ... and `BeginTransactionAsync`. It commits internally.
+                // So if repository succeeds but then `processed_messages` fails (rare), we have metrics but no event_id record. 
+                // That's acceptable (at-least-once).
+                // If `processed_messages` succeeds but repository fails -> Exception -> rollback processed -> consistent (nothing saved).
+                // Wait. `processed_messages` insert is BELOW.
+                
+                await _repository.SaveMetricsAsync(metrics, token);
 
-                // Processed Messages
+                // 3. Mark as Processed (Idempotency) - COPY
+                // Only if metrics saved successfully (or partially if we don't care about partials inside repository).
                 using (var writer = await connection.BeginBinaryImportAsync(
                     "COPY processed_messages (event_id, consumer_group, processed_at) FROM STDIN (FORMAT BINARY)"))
                 {

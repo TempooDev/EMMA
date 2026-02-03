@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { Dashboard } from './pages/Dashboard';
+import { MapDashboard } from './pages/MapDashboard';
 import aspireLogo from '/Aspire.png'
 import './App.css'
 
@@ -10,6 +12,9 @@ interface WeatherForecast {
 }
 
 function App() {
+  const [activeTab, setActiveTab] = useState<'weather' | 'dashboard' | 'map'>('dashboard');
+  
+  // Weather State
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -37,8 +42,10 @@ function App() {
   }
 
   useEffect(() => {
-    fetchWeatherForecast()
-  }, [])
+    if (activeTab === 'weather') {
+        fetchWeatherForecast()
+    }
+  }, [activeTab])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString(undefined, { 
@@ -60,123 +67,49 @@ function App() {
         >
           <img src={aspireLogo} className="logo" alt="Aspire logo" />
         </a>
-        <h1 className="app-title">Aspire Starter</h1>
-        <p className="app-subtitle">Modern distributed application development</p>
+        <h1 className="app-title">EMMA Dashboard</h1>
+        
+        <nav className="main-nav">
+             <button onClick={() => setActiveTab('dashboard')} className={activeTab === 'dashboard' ? 'active' : ''}>Energy Monitor</button>
+             <button onClick={() => setActiveTab('map')} className={activeTab === 'map' ? 'active' : ''}>Map</button>
+             <button onClick={() => setActiveTab('weather')} className={activeTab === 'weather' ? 'active' : ''}>Weather</button>
+        </nav>
       </header>
 
       <main className="main-content">
+        {activeTab === 'dashboard' ? (
+            <Dashboard />
+        ) : activeTab === 'map' ? (
+            <MapDashboard />
+        ) : (
         <section className="weather-section" aria-labelledby="weather-heading">
+          {/* Weather Content */}
           <div className="card">
             <div className="section-header">
               <h2 id="weather-heading" className="section-title">Weather Forecast</h2>
+              {/* ... Copied Weather Controls ... */}
               <div className="header-actions">
-                <fieldset className="toggle-switch" aria-label="Temperature unit selection">
-                  <legend className="visually-hidden">Temperature unit</legend>
-                  <button 
-                    className={`toggle-option ${!useCelsius ? 'active' : ''}`}
-                    onClick={() => setUseCelsius(false)}
-                    aria-pressed={!useCelsius}
-                    type="button"
-                  >
-                    <span aria-hidden="true">°F</span>
-                    <span className="visually-hidden">Fahrenheit</span>
-                  </button>
-                  <button 
-                    className={`toggle-option ${useCelsius ? 'active' : ''}`}
-                    onClick={() => setUseCelsius(true)}
-                    aria-pressed={useCelsius}
-                    type="button"
-                  >
-                    <span aria-hidden="true">°C</span>
-                    <span className="visually-hidden">Celsius</span>
-                  </button>
-                </fieldset>
-                <button 
-                  className="refresh-button"
-                  onClick={fetchWeatherForecast} 
-                  disabled={loading}
-                  aria-label={loading ? 'Loading weather forecast' : 'Refresh weather forecast'}
-                  type="button"
-                >
-                  <svg 
-                    className={`refresh-icon ${loading ? 'spinning' : ''}`}
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                  </svg>
-                  <span>{loading ? 'Loading...' : 'Refresh'}</span>
-                </button>
+                 <button className="refresh-button" onClick={fetchWeatherForecast}>Refresh</button>
               </div>
             </div>
             
-            {error && (
-              <div className="error-message" role="alert" aria-live="polite">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="12" y1="8" x2="12" y2="12"/>
-                  <line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                <span>{error}</span>
-              </div>
-            )}
-            
-            {loading && weatherData.length === 0 && (
-              <div className="loading-skeleton" role="status" aria-live="polite" aria-label="Loading weather data">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="skeleton-row" aria-hidden="true" />
-                ))}
-                <span className="visually-hidden">Loading weather forecast data...</span>
-              </div>
-            )}
+            {loading && <p>Loading...</p>}
             
             {weatherData.length > 0 && (
               <div className="weather-grid">
                 {weatherData.map((forecast, index) => (
-                  <article key={index} className="weather-card" aria-label={`Weather for ${formatDate(forecast.date)}`}>
-                    <h3 className="weather-date">
-                      <time dateTime={forecast.date}>{formatDate(forecast.date)}</time>
-                    </h3>
+                  <article key={index} className="weather-card">
+                    <h3 className="weather-date">{formatDate(forecast.date)}</h3>
                     <p className="weather-summary">{forecast.summary}</p>
-                    <div className="weather-temps" aria-label={`Temperature: ${useCelsius ? forecast.temperatureC : forecast.temperatureF} degrees ${useCelsius ? 'Celsius' : 'Fahrenheit'}`}>
-                      <div className="temp-group">
-                        <span className="temp-value" aria-hidden="true">
-                          {useCelsius ? forecast.temperatureC : forecast.temperatureF}°
-                        </span>
-                        <span className="temp-unit" aria-hidden="true">{useCelsius ? 'Celsius' : 'Fahrenheit'}</span>
-                      </div>
-                    </div>
+                    <p>{useCelsius ? forecast.temperatureC : forecast.temperatureF}°{useCelsius ? 'C' : 'F'}</p>
                   </article>
                 ))}
               </div>
             )}
           </div>
         </section>
+        )}
       </main>
-
-      <footer className="app-footer">
-        <nav aria-label="Footer navigation">
-          <a href="https://aspire.dev" target="_blank" rel="noopener noreferrer">
-            Learn more about Aspire<span className="visually-hidden"> (opens in new tab)</span>
-          </a>
-          <a 
-            href="https://github.com/dotnet/aspire" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="github-link"
-            aria-label="View Aspire on GitHub (opens in new tab)"
-          >
-            <img src="/github.svg" alt="" width="24" height="24" aria-hidden="true" />
-            <span className="visually-hidden">GitHub</span>
-          </a>
-        </nav>
-      </footer>
     </div>
   )
 }
