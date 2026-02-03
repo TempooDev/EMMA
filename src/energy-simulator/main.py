@@ -5,20 +5,9 @@ import time
 import math
 import random
 import uuid
-from datetime import datetime, timezone
-import argparse
+from datetime import datetime, timezone, timedelta
 
-try:
-    import paho.mqtt.client as mqtt
-except ImportError:
-    print("Error: paho-mqtt is not installed.")
-    print("Please install it using: pip install paho-mqtt")
-    sys.exit(1)
-
-# Configuration
-DEFAULT_BROKER_URL = "localhost"
-DEFAULT_BROKER_PORT = 1883
-TOPIC = "telemetry_raw"
+# ... (Imports)
 
 class Asset:
     def __init__(self, asset_id, asset_type, location):
@@ -32,13 +21,20 @@ class Asset:
         self.is_charging = False
         self.charging_ticks_remaining = 0
 
-    def generate_telemetry(self):
-        # Update virtual time (advance 0.5 hours every tick) -> 24h cycle in 48 ticks (~8 mins)
-        self.virtual_hour = (self.virtual_hour + 0.5) % 24
-        
-        # Timestamp is still real time for observability, or could be virtual if preferred.
-        # Keeping real time helps debugging logs, but values represent the virtual state.
-        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    def generate_telemetry(self, timestamp_override=None):
+        if timestamp_override:
+            # Historical Mode: strict alignment to passed time
+            timestamp = timestamp_override
+            # Virtual hour follows the hour of the timestamp
+            # We want solar to look correct (day/night)
+            self.virtual_hour = timestamp.hour + (timestamp.minute / 60.0)
+            ts_str = timestamp.isoformat().replace("+00:00", "Z")
+        else:
+            # Real-time Mode: existing logic (fast forward or real-time simulation)
+            # Keeping the fast-forward 0.5 per tick logic for "Live Demo" feel
+            self.virtual_hour = (self.virtual_hour + 0.5) % 24
+            ts_str = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            
         event_id = str(uuid.uuid4())
         
         measurements = self._generate_measurements()
@@ -57,7 +53,7 @@ class Asset:
             },
             "location": self.location,
             "measurements": measurements,
-            "timestamp": timestamp,
+            "timestamp": ts_str,
             # debug field to see virtual time
             "virtual_time_hour": float(f"{self.virtual_hour:.2f}") 
         }
@@ -119,43 +115,81 @@ class Asset:
             
         return measurements
 
-def run_simulation(broker_url, broker_port):
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, "energy_asset_simulator")
+def run_simulation(broker_url, broker_port, mode):
+    # Define Locations
+    locations = {
+        "madrid":  {"latitude": 40.4168, "longitude": -3.7038, "market_zone": "BZN|ES", "country_code": "ES"},
+        "malaga":  {"latitude": 36.7213, "longitude": -4.4214, "market_zone": "BZN|ES", "country_code": "ES"},
+        "granada": {"latitude": 37.1773, "longitude": -3.5986, "market_zone": "BZN|ES", "country_code": "ES"},
+        "sevilla": {"latitude": 37.3891, "longitude": -5.9845, "market_zone": "BZN|ES", "country_code": "ES"},
+        "albacete": {"latitude": 38.9943, "longitude": -1.8585, "market_zone": "BZN|ES", "country_code": "ES"}
+    }
+
+    # Create Assets spread across locations
+    assets = []
+    
+    # Madrid (Keep existing)
+    assets.append(Asset("INV-ES-MAD-001", "inverter", locations["madrid"]))
+    assets.append(Asset("EV-ES-MAD-002", "charger", locations["madrid"]))
+    
+    # Malaga
+    assets.append(Asset("INV-ES-MAL-001", "inverter", locations["malaga"]))
+    assets.append(Asset("EV-ES-MAL-002", "charger", locations["malaga"]))
+    
+    # Granada
+    assets.append(Asset("INV-ES-GRA-001", "inverter", locations["granada"]))
+    
+    # Sevilla
+    assets.append(Asset("INV-ES-SEV-001", "inverter", locations["sevilla"]))
+    assets.append(Asset("EV-ES-SEV-001", "charger", locations["sevilla"]))
+    
+    # Albacete
+    assets.append(Asset("INV-ES-ALB-001", "inverter", locations["albacete"]))
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f"energy_simulator_{uuid.uuid4()}")
     
     try:
         print(f"Connecting to MQTT broker at {broker_url}:{broker_port}...")
         client.connect(broker_url, broker_port)
-        client.loop_start()
     except Exception as e:
-        print(f"Failed to connect to MQTT broker: {e}")
+        print(f"Failed to connect: {e}")
         return
 
-    # Define Assets
-    location_madrid = {
-        "latitude": 40.4168,
-        "longitude": -3.7038,
-        "market_zone": "BZN|ES",
-        "country_code": "ES"
-    }
+    if mode == "history":
+        print("Generating historical data for the last 30 days...")
+        # Generate 30 days of data, 1 hour step
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(days=30)
+        
+        current_time = start_time
+        total_messages = 0
+        
+        while current_time <= end_time:
+            for asset in assets:
+                telemetry = asset.generate_telemetry(timestamp_override=current_time)
+                client.publish(TOPIC, json.dumps(telemetry))
+                total_messages += 1
+            
+            # Step 1 hour
+            current_time += timedelta(hours=1)
+            
+            if total_messages % 100 == 0:
+                print(f"Generated data up to {current_time.isoformat()}... ({total_messages} msgs)")
+                
+        print(f"Historical data generation complete. Sent {total_messages} messages.")
+        client.disconnect()
+        return
 
-    assets = [
-        Asset("INV-ES-MAD-001", "inverter", location_madrid),
-        Asset("EV-ES-MAD-002", "charger", location_madrid),
-        Asset("EV-ES-MAD-003", "charger", location_madrid)
-    ]
-
-    print("Starting simulation. Press Ctrl+C to stop.")
+    # Real-time Simulation Mode
+    print("Starting real-time simulation. Press Ctrl+C to stop.")
+    client.loop_start()
+    
     try:
         while True:
             for asset in assets:
                 telemetry = asset.generate_telemetry()
-                payload_str = json.dumps(telemetry)
-                
-                info = client.publish(TOPIC, payload_str)
-                # We don't wait for publish here to keep timing roughly accurate for all assets
-                # but could check info.rc if needed
-                
-                print(f"Sent telemetry for {asset.asset_id}: Power={telemetry['measurements']['power_kw']:.2f}kW")
+                client.publish(TOPIC, json.dumps(telemetry))
+                print(f"[{datetime.now().time()}] Sent {asset.asset_id}: {telemetry['measurements']['power_kw']:.2f}kW")
 
             time.sleep(10)
             
@@ -164,19 +198,18 @@ def run_simulation(broker_url, broker_port):
     finally:
         client.loop_stop()
         client.disconnect()
-        print("Disconnected from broker.")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Energy Asset Digital Twin Simulator")
-    parser.add_argument("--url", type=str, help="MQTT Broker URL or Connection String", default=os.getenv("MQTT_BROKER_URL", DEFAULT_BROKER_URL))
-    parser.add_argument("--port", type=int, help="MQTT Broker Port", default=None)
+    parser.add_argument("--url", type=str, help="MQTT Broker URL", default=os.getenv("MQTT_BROKER_URL", DEFAULT_BROKER_URL))
+    parser.add_argument("--port", type=int, help="MQTT Port", default=None)
+    parser.add_argument("--mode", type=str, choices=["live", "history"], default="live", help="Simulation mode")
     
     args = parser.parse_args()
     
     broker_url = args.url
     broker_port = args.port
     
-    # Handle full URI if present (e.g. tcp://localhost:1883)
     if "://" in broker_url:
         try:
             from urllib.parse import urlparse
@@ -184,11 +217,10 @@ if __name__ == "__main__":
             broker_url = parsed.hostname
             if parsed.port:
                 broker_port = parsed.port
-        except Exception as e:
-            print(f"Error parsing URL: {e}")
+        except Exception:
+            pass
             
-    # Fallback to default port or env var if not set
     if broker_port is None:
         broker_port = int(os.getenv("MQTT_BROKER_PORT", DEFAULT_BROKER_PORT))
     
-    run_simulation(broker_url, broker_port)
+    run_simulation(broker_url, broker_port, args.mode)

@@ -1,7 +1,7 @@
 using Dapper;
 using EMMA.Ingestion.Extensions;
 using EMMA.Ingestion.Models;
-using EMMA.Shared;
+using global::EMMA.Shared;
 using Npgsql;
 using Polly.Retry;
 
