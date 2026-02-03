@@ -139,7 +139,7 @@ public class Worker : BackgroundService
     {
         using var logScope = _logger.BeginScope("Batch processing count={Count}", batch.Count);
 
-        var parsedMessages = new List<(Guid EventId, string TechnicalId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
+        var parsedMessages = new List<(Guid EventId, string TechnicalId, string TenantId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
 
         foreach (var item in batch)
         {
@@ -147,9 +147,9 @@ public class Worker : BackgroundService
             {
                 using var doc = JsonDocument.Parse(item.Message.Value);
                 var root = doc.RootElement.Clone();
-                if (TryExtractMetadata(root, out var eventId, out var technicalId, out var timestamp, out var latitude, out var longitude))
+                if (TryExtractMetadata(root, out var eventId, out var technicalId, out var tenantId, out var timestamp, out var latitude, out var longitude))
                 {
-                    parsedMessages.Add((eventId, technicalId, timestamp, latitude, longitude, root));
+                    parsedMessages.Add((eventId, technicalId, tenantId, timestamp, latitude, longitude, root));
                 }
             }
             catch (JsonException)
@@ -166,28 +166,43 @@ public class Worker : BackgroundService
             using var transaction = await connection.BeginTransactionAsync(token);
 
             // Privacy: Get or Create Anonymous IDs
-            var technicalIds = parsedMessages.Select(m => m.TechnicalId).Distinct().ToList();
-            var mappings = await GetAssetMappingsAsync(connection, technicalIds, transaction, token);
+            var technicalTenantPairs = parsedMessages.Select(m => (m.TechnicalId, m.TenantId)).Distinct().ToList();
+            var mappings = await GetAssetMappingsAsync(connection, technicalTenantPairs, transaction, token);
+
+            // Edge Security: Verify Tenant mismatch
+            foreach (var msg in parsedMessages)
+            {
+                if (mappings.TryGetValue(msg.TechnicalId, out var map) && map.TenantId != msg.TenantId)
+                {
+                    _logger.LogWarning("SECURITY ALERT: Asset {TechnicalId} reported with tenant {ReportedTenant} but is registered to {RegisteredTenant}. Rejecting message.",
+                        MaskId(msg.TechnicalId), msg.TenantId, map.TenantId);
+                    continue; // Skip this message
+                }
+            }
+
+            // Filter out rejected messages
+            var validMessages = parsedMessages.Where(msg => mappings.ContainsKey(msg.TechnicalId) && mappings[msg.TechnicalId].TenantId == msg.TenantId).ToList();
 
             // Idempotency: Filter duplicates by event_id
-            var eventIds = parsedMessages.Select(m => m.EventId).ToArray();
+            var eventIds = validMessages.Select(m => m.EventId).ToArray();
             var existingIds = await connection.QueryAsync<Guid>(
                 Queries.SelectPendingEvents,
                 new { EventIds = eventIds },
                 transaction: transaction);
 
             var existingIdSet = existingIds.ToHashSet();
-            var newMessages = parsedMessages.Where(m => !existingIdSet.Contains(m.EventId)).ToList();
+            var newMessages = validMessages.Where(m => !existingIdSet.Contains(m.EventId)).ToList();
 
             if (newMessages.Count > 0)
             {
-                // 1. Upsert Device Info (using anonymous ID)
+                // 1. Upsert Device Info (using anonymous ID and tenant ID)
                 var distinctDevices = newMessages
                     .GroupBy(m => m.TechnicalId)
                     .Select(g => new
                     {
                         TechnicalId = g.Key,
-                        AnonymousId = mappings[g.Key],
+                        AnonymousId = mappings[g.Key].AnonymousId,
+                        TenantId = mappings[g.Key].TenantId,
                         Latitude = g.FirstOrDefault(x => x.Latitude.HasValue).Latitude,
                         Longitude = g.FirstOrDefault(x => x.Longitude.HasValue).Longitude
                     })
@@ -195,10 +210,11 @@ public class Worker : BackgroundService
 
                 var devicesPayload = distinctDevices.Select(d => new
                 {
-                    DeviceId = d.AnonymousId.ToString(), // Use Anonymous ID for devices table
+                    DeviceId = d.AnonymousId.ToString(),
                     ModelName = "Anonymized Asset",
                     d.Latitude,
-                    d.Longitude
+                    d.Longitude,
+                    d.TenantId
                 });
 
                 await connection.ExecuteAsync(Queries.InsertDevice,
@@ -217,11 +233,11 @@ public class Worker : BackgroundService
                         if (measurements.TryGetProperty("inverter_temp_c", out var tElem) && tElem.ValueKind == JsonValueKind.Number) temp = tElem.GetDouble();
 
                         // Use the anonymous ID in metrics
-                        metrics.Add(new AssetMetric(msg.Timestamp, mappings[msg.TechnicalId].ToString(), power, energy, temp));
+                        metrics.Add(new AssetMetric(msg.Timestamp, mappings[msg.TechnicalId].AnonymousId.ToString(), power, energy, temp));
                     }
 
                     // Privacy: Mask logs
-                    _logger.LogInformation("Processed message {EventId} for Asset [MASKED:{Hash}]", msg.EventId, MaskId(msg.TechnicalId));
+                    _logger.LogInformation("Processed message {EventId} for Asset [MASKED:{Hash}] on Tenant {TenantId}", msg.EventId, MaskId(msg.TechnicalId), msg.TenantId);
                 }
 
                 await _repository.SaveMetricsAsync(metrics, token);
@@ -255,24 +271,26 @@ public class Worker : BackgroundService
         }
     }
 
-    private async Task<Dictionary<string, Guid>> GetAssetMappingsAsync(NpgsqlConnection conn, List<string> technicalIds, NpgsqlTransaction transaction, CancellationToken ct)
+    private async Task<Dictionary<string, (Guid AnonymousId, string TenantId)>> GetAssetMappingsAsync(NpgsqlConnection conn, List<(string TechnicalId, string TenantId)> technicalTenantPairs, NpgsqlTransaction transaction, CancellationToken ct)
     {
-        var existing = (await conn.QueryAsync<(string TechnicalId, Guid AnonymousId)>(
-            "SELECT technical_id, anonymous_id FROM asset_mappings WHERE technical_id = ANY(@Ids)",
+        var technicalIds = technicalTenantPairs.Select(x => x.TechnicalId).Distinct().ToList();
+        var existingResult = await conn.QueryAsync<(string TechnicalId, Guid AnonymousId, string TenantId)>(
+            "SELECT technical_id, anonymous_id, tenant_id FROM asset_mappings WHERE technical_id = ANY(@Ids)",
             new { Ids = technicalIds },
-            transaction: transaction)).ToDictionary(x => x.TechnicalId, x => x.AnonymousId);
+            transaction: transaction);
 
-        var missing = technicalIds.Where(id => !existing.ContainsKey(id)).ToList();
-        if (missing.Count > 0)
+        var existing = existingResult.ToDictionary(x => x.TechnicalId, x => (x.AnonymousId, x.TenantId));
+
+        foreach (var pair in technicalTenantPairs)
         {
-            foreach (var id in missing)
+            if (!existing.ContainsKey(pair.TechnicalId))
             {
                 var anonId = Guid.NewGuid();
                 await conn.ExecuteAsync(
-                    "INSERT INTO asset_mappings (technical_id, anonymous_id) VALUES (@Tech, @Anon) ON CONFLICT (technical_id) DO NOTHING",
-                    new { Tech = id, Anon = anonId },
+                    "INSERT INTO asset_mappings (technical_id, anonymous_id, tenant_id) VALUES (@Tech, @Anon, @Tenant) ON CONFLICT (technical_id) DO NOTHING",
+                    new { Tech = pair.TechnicalId, Anon = anonId, Tenant = pair.TenantId },
                     transaction: transaction);
-                existing[id] = anonId;
+                existing[pair.TechnicalId] = (anonId, pair.TenantId);
             }
         }
 
@@ -281,11 +299,11 @@ public class Worker : BackgroundService
 
     private static string MaskId(string id) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id))).Substring(0, 8);
 
-
-    private static bool TryExtractMetadata(JsonElement root, out Guid eventId, out string assetId, out DateTimeOffset timestamp, out double? latitude, out double? longitude)
+    private static bool TryExtractMetadata(JsonElement root, out Guid eventId, out string technicalId, out string tenantId, out DateTimeOffset timestamp, out double? latitude, out double? longitude)
     {
         eventId = Guid.Empty;
-        assetId = string.Empty;
+        technicalId = string.Empty;
+        tenantId = "DEFAULT_TENANT";
         timestamp = default;
         latitude = null;
         longitude = null;
@@ -299,8 +317,13 @@ public class Worker : BackgroundService
 
         if (!Guid.TryParse(eventIdElem.GetString(), out eventId)) return false;
 
-        assetId = assetIdElem.GetString() ?? string.Empty;
-        if (string.IsNullOrEmpty(assetId)) return false;
+        technicalId = assetIdElem.GetString() ?? string.Empty;
+        if (string.IsNullOrEmpty(technicalId)) return false;
+
+        if (header.TryGetProperty("tenant_id", out var tenantElem))
+        {
+            tenantId = tenantElem.GetString() ?? "DEFAULT_TENANT";
+        }
 
         if (!root.TryGetProperty("timestamp", out var timestampElem) ||
             !DateTimeOffset.TryParse(timestampElem.GetString(), out timestamp))

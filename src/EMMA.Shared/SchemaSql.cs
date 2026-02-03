@@ -9,7 +9,8 @@ public static class SchemaSql
             model_name VARCHAR(100) NOT NULL,
             firmware_version VARCHAR(50),
             latitude DOUBLE PRECISION,
-            longitude DOUBLE PRECISION
+            longitude DOUBLE PRECISION,
+            tenant_id VARCHAR(50)
         );";
 
     public const string RawDataSchema = "CREATE SCHEMA IF NOT EXISTS raw_data;";
@@ -95,7 +96,8 @@ public static class SchemaSql
     public const string AssetMappings = @"
         CREATE TABLE IF NOT EXISTS asset_mappings (
             technical_id VARCHAR(50) PRIMARY KEY,
-            anonymous_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid()
+            anonymous_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+            tenant_id VARCHAR(50)
         );";
 
     public const string AssetMetricsHourly = @"

@@ -1,4 +1,3 @@
-using EMMA.Api.Services;
 
 namespace EMMA.Api.Features.Assets;
 
@@ -11,13 +10,15 @@ public static class AssetEndpoints
             var ids = await service.GetAssetsAsync(ct);
             return Results.Ok(ids);
         })
-        .WithName("GetAssets");
+        .WithName("GetAssets")
+        .RequireAuthorization();
 
         app.MapGet("/assets/{id}/status", async (string id, IAssetService service, CancellationToken ct) =>
         {
             var status = await service.GetAssetStatusAsync(id, ct);
             return status != null ? Results.Ok(status) : Results.NotFound();
         })
-        .WithName("GetAssetStatus");
+        .WithName("GetAssetStatus")
+        .RequireAuthorization();
     }
 }

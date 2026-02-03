@@ -2,9 +2,13 @@ using Mapster;
 using Npgsql;
 using Scalar.AspNetCore;
 using EMMA.Api.Features.Assets;
+using EMMA.Api.Features.Assets.Data;
 using EMMA.Api.Features.Market;
-using EMMA.Api.Data.Repositories;
-using EMMA.Api.Services;
+using EMMA.Api.Features.Market.Data;
+using EMMA.Api.Infrastructure.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +28,27 @@ builder.Services.AddSingleton<IMarketRepository, MarketRepository>();
 // Services
 builder.Services.AddSingleton<IAssetService, AssetService>();
 builder.Services.AddSingleton<IMarketService, MarketService>();
+builder.Services.AddScoped<ITenantProvider, TenantProvider>();
+builder.Services.AddHttpContextAccessor();
+
+// Authentication & JWT
+var jwtKey = builder.Configuration["Jwt:Key"] ?? "a-very-long-secret-key-that-should-be-in-config";
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // Mapster
 TypeAdapterConfig.GlobalSettings.Default.PreserveReference(true);
@@ -40,6 +65,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Endpoints
 app.MapAssetEndpoints();

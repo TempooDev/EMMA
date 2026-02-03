@@ -55,12 +55,13 @@ public static class Queries
     ";
 
     public const string InsertDevice = @"
-        INSERT INTO public.devices (device_id, model_name, latitude, longitude)
-        VALUES (@DeviceId, @ModelName, @Latitude, @Longitude)
+        INSERT INTO public.devices (device_id, model_name, latitude, longitude, tenant_id)
+        VALUES (@DeviceId, @ModelName, @Latitude, @Longitude, @TenantId)
         ON CONFLICT (device_id) DO UPDATE 
         SET model_name = EXCLUDED.model_name,
             latitude = EXCLUDED.latitude,
-            longitude = EXCLUDED.longitude;
+            longitude = EXCLUDED.longitude,
+            tenant_id = EXCLUDED.tenant_id;
     ";
     
     public const string SelectPendingEvents = "SELECT event_id FROM processed_messages WHERE event_id = ANY(@EventIds) FOR UPDATE SKIP LOCKED";
