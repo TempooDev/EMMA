@@ -28,6 +28,7 @@ builder.Services.AddSingleton<IProducer<string, string>>(_ =>
 
 // Services
 builder.Services.AddSingleton<MarketAlertService>();
+builder.Services.AddSingleton<ArbitrageService>();
 builder.Services.AddSingleton<MarketPriceRepository>();
 builder.Services.AddHostedService<Worker>();
 

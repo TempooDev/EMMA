@@ -18,6 +18,7 @@ public class Worker(
                 using var scope = serviceProvider.CreateScope();
                 var client = scope.ServiceProvider.GetRequiredService<RedDataClient>();
                 var alertService = scope.ServiceProvider.GetRequiredService<MarketAlertService>();
+                var arbitrageService = scope.ServiceProvider.GetRequiredService<ArbitrageService>();
                 var repository = scope.ServiceProvider.GetRequiredService<MarketPriceRepository>(); // Added Repo
 
                 logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
@@ -30,6 +31,9 @@ public class Worker(
                 {
                     logger.LogInformation("Fetched {Count} prices. Saving to DB...", prices.Count);
                     await repository.SavePricesAsync(prices, "EUR", "REData", stoppingToken);
+                    
+                    // Analyze Arbitrage
+                    await arbitrageService.AnalyzeAsync("BZN|ES", prices, stoppingToken);
                 }
                 else
                 {

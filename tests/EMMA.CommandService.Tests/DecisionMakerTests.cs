@@ -69,14 +69,18 @@ public class DecisionMakerTests
     }
 
     [Fact]
-    public async Task ProcessAlertAsync_OtherAlert_DoesNothing()
+    public async Task ProcessAlertAsync_ArbitrageOpportunity_LogsAction()
     {
         // Arrange
         var alert = new
         {
-            alert_type = "HIGH_PRICE",
+            alert_type = "ARBITRAGE_OPPORTUNITY",
             zone = "ES",
-            price = 200.0
+            spread = 60.0,
+            min_price = 10.0,
+            max_price = 70.0,
+            best_charge_at = DateTimeOffset.UtcNow.AddHours(1),
+            best_discharge_at = DateTimeOffset.UtcNow.AddHours(5)
         };
         var json = JsonSerializer.Serialize(alert);
 
@@ -84,9 +88,23 @@ public class DecisionMakerTests
         await _decisionMaker.ProcessAlertAsync(json, CancellationToken.None);
 
         // Assert
+        // Should LOG but NOT produce a command yet (per requirements)
+        // We verify that it did NOT produce a command to asset-commands
         _mockProducer.Verify(p => p.ProduceAsync(
-            It.IsAny<string>(),
+            "asset-commands",
             It.IsAny<Message<string, string>>(),
             It.IsAny<CancellationToken>()), Times.Never);
+        
+        // We implicitly verify it didn't crash. 
+        // Logic check: "The system logs a Planned Arbitrage Action"
+        // Since we mock Logger, we could verify Log calls if needed, but for now safe execution is key.
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Information,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Planned Arbitrage Action")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
+            Times.Once);
     }
 }
