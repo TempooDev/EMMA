@@ -13,6 +13,7 @@
     <ProjectReference Include="..\EMMA.Ingestion\EMMA.Ingestion.csproj" />
     <ProjectReference Include="..\EMMA.MarketService\EMMA.MarketService.csproj" />
     <ProjectReference Include="..\EMMA.CommandService\EMMA.CommandService.csproj" />
+    <ProjectReference Include="..\EMMA.Api\EMMA.Api.csproj" />
   </ItemGroup>
 
   <ItemGroup>

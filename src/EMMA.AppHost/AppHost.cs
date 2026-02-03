@@ -47,4 +47,9 @@ var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-s
     .WithReference(kafka)
     .WaitFor(kafka);
 
+var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
+    .WithReference(emma_db)
+    .WithReference(kafka) // if needed later
+    .WaitFor(emma_db);
+
 builder.Build().Run();
