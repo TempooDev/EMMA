@@ -42,7 +42,7 @@ public class AuditMiddleware(RequestDelegate next, NpgsqlDataSource dataSource)
             var userId = context.User?.FindFirstValue(ClaimTypes.NameIdentifier) 
                          ?? context.User?.FindFirstValue("sub") 
                          ?? "anonymous";
-            var tenantId = tenantProvider.GetTenantId() ?? "N/A";
+            var tenantId = tenantProvider.TenantId ?? "N/A";
 
             using var connection = await dataSource.OpenConnectionAsync();
             const string sql = @"

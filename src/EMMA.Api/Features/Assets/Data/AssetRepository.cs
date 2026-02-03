@@ -14,27 +14,39 @@ public class AssetRepository(NpgsqlDataSource dataSource, ITenantProvider tenant
 {
     public async Task<IEnumerable<string>> GetAllIdsAsync(CancellationToken ct = default)
     {
-        var tenantId = tenantProvider.GetTenantId();
+        var tenantId = tenantProvider.TenantId;
         using var connection = await dataSource.OpenConnectionAsync(ct);
-        const string query = "SELECT device_id FROM devices WHERE tenant_id = @TenantId;";
+        
+        string query = "SELECT device_id FROM devices WHERE tenant_id = @TenantId";
+        if (tenantProvider.IsSandbox)
+        {
+            query += " AND device_id LIKE 'sim_%'";
+        }
+        query += ";";
+
         return await connection.QueryAsync<string>(query, new { TenantId = tenantId });
     }
 
     public async Task<AssetStatusEntity?> GetStatusAsync(string id, CancellationToken ct = default)
     {
-        var tenantId = tenantProvider.GetTenantId();
+        var tenantId = tenantProvider.TenantId;
         using var connection = await dataSource.OpenConnectionAsync(ct);
         
         // Re-check tenant_id for the specific asset to prevent unauthorized access by ID
-        const string query = @"
+        string query = @"
             SELECT 
                 m.time as LastHeartbeat,
                 m.power_kw as PowerKw
             FROM asset_metrics m
             JOIN devices d ON m.asset_id = d.device_id
-            WHERE d.device_id = @Id AND d.tenant_id = @TenantId
-            ORDER BY m.time DESC
-            LIMIT 1;";
+            WHERE d.device_id = @Id AND d.tenant_id = @TenantId";
+
+        if (tenantProvider.IsSandbox)
+        {
+            query += " AND d.device_id LIKE 'sim_%'";
+        }
+
+        query += @" ORDER BY m.time DESC LIMIT 1;";
             
         return await connection.QuerySingleOrDefaultAsync<AssetStatusEntity>(query, new { Id = id, TenantId = tenantId });
     }

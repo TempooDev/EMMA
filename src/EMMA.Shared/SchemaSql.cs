@@ -176,4 +176,15 @@ public static class SchemaSql
             status TEXT DEFAULT 'PENDING'
         );
         CREATE INDEX IF NOT EXISTS optimization_schedules_time_idx ON optimization_schedules (target_hour DESC);";
+
+    public const string ApiKeys = @"
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            key TEXT NOT NULL UNIQUE,
+            owner_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            is_active BOOLEAN NOT NULL DEFAULT TRUE
+        );
+        CREATE INDEX IF NOT EXISTS api_keys_key_idx ON api_keys (key);";
 }

@@ -20,6 +20,13 @@ builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseNpgsql(connectionString);
 });
 
+builder.Services.AddSingleton<Npgsql.NpgsqlDataSource>(sp => 
+{
+    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    return Npgsql.NpgsqlDataSource.Create(connectionString);
+});
+
 // Identity
 builder.Services.AddIdentityCore<ApplicationUser>(options => {
     options.Password.RequireDigit = false;
@@ -29,6 +36,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options => {
 })
 .AddEntityFrameworkStores<IdentityDbContext>()
 .AddDefaultTokenProviders();
+
+builder.Services.AddOpenApi();
 
 // Authentication & JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
@@ -58,6 +67,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapTokenEndpoints();
+app.MapApiKeyEndpoints();
 
 // Seed data or migrations could go here
 using (var scope = app.Services.CreateScope())
