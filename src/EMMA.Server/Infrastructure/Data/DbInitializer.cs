@@ -35,7 +35,8 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                 ["asset_mappings"] = SchemaSql.AssetMappings,
                 ["asset_metrics_hourly"] = SchemaSql.AssetMetricsHourly,
                 ["asset_metrics_daily"] = SchemaSql.AssetMetricsDaily,
-                ["audit_logs"] = SchemaSql.AuditLogs
+                ["audit_logs"] = SchemaSql.AuditLogs,
+                ["interconnection_flows"] = SchemaSql.InterconnectionFlows
             };
 
             foreach (var kvp in scripts)

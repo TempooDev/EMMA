@@ -10,6 +10,7 @@ var kafka = builder.AddKafka("messaging")
     .WithKafkaUI();
 
 var jwtKey = builder.AddParameter("jwt-key", secret: true);
+var entsoeApiKey = builder.AddParameter("entsoe-api-key", secret: true);
 
 var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-bridge")
                         .WithReference(kafka)
@@ -31,6 +32,7 @@ var server = builder.AddProject<Projects.EMMA_Server>("server")
 var marketService = builder.AddProject<Projects.EMMA_MarketService>("market-service")
     .WithReference(kafka)
     .WithReference(emma_db)
+    .WithEnvironment("Entsoe__ApiKey", entsoeApiKey)
     .WaitFor(kafka)
     .WaitFor(server);
 

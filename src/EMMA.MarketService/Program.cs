@@ -26,10 +26,14 @@ var kafkaConfig = new ProducerConfig { BootstrapServers = builder.Configuration.
 builder.Services.AddSingleton<IProducer<string, string>>(_ => 
     new ProducerBuilder<string, string>(kafkaConfig).Build());
 
+builder.Services.AddHttpClient<EntsoeClient>()
+    .AddPolicyHandler(retryPolicy);
+
 // Services
 builder.Services.AddSingleton<MarketAlertService>();
 builder.Services.AddSingleton<ArbitrageService>();
 builder.Services.AddSingleton<MarketPriceRepository>();
+builder.Services.AddSingleton<InterconnectionRepository>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();

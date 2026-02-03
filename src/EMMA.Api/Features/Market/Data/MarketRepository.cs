@@ -7,7 +7,10 @@ public interface IMarketRepository
 {
     Task<MarketSummaryEntity?> GetCurrentPriceAsync(CancellationToken ct = default);
     Task<bool> IsArbitrageActiveAsync(CancellationToken ct = default);
+    Task<InterconnectionStatusEntity?> GetLatestInterconnectionStatusAsync(CancellationToken ct = default);
 }
+
+public record InterconnectionStatusEntity(double SaturationPercentage, string Direction);
 
 public class MarketRepository(NpgsqlDataSource dataSource) : IMarketRepository
 {
@@ -39,6 +42,20 @@ public class MarketRepository(NpgsqlDataSource dataSource) : IMarketRepository
         ";
         
         return await connection.ExecuteScalarAsync<bool>(query);
+    }
+
+    public async Task<InterconnectionStatusEntity?> GetLatestInterconnectionStatusAsync(CancellationToken ct = default)
+    {
+        using var connection = await dataSource.OpenConnectionAsync(ct);
+        const string query = @"
+            SELECT 
+                saturation_percentage as SaturationPercentage,
+                flow_direction as Direction
+            FROM interconnection_flows
+            ORDER BY at_time DESC
+            LIMIT 1;";
+        
+        return await connection.QuerySingleOrDefaultAsync<InterconnectionStatusEntity>(query);
     }
 }
 

@@ -64,5 +64,15 @@ public static class Queries
             tenant_id = EXCLUDED.tenant_id;
     ";
     
+    public const string InsertInterconnectionFlow = @"
+        INSERT INTO interconnection_flows (at_time, flow_direction, physical_flow_mw, scheduled_flow_mw, ntc_mw, saturation_percentage)
+        VALUES (@Time, @Direction, @PhysicalFlow, @ScheduledFlow, @Ntc, @Saturation)
+        ON CONFLICT (at_time, flow_direction) 
+        DO UPDATE SET physical_flow_mw = EXCLUDED.physical_flow_mw, 
+                      scheduled_flow_mw = EXCLUDED.scheduled_flow_mw,
+                      ntc_mw = EXCLUDED.ntc_mw,
+                      saturation_percentage = EXCLUDED.saturation_percentage;
+    ";
+
     public const string SelectPendingEvents = "SELECT event_id FROM processed_messages WHERE event_id = ANY(@EventIds) FOR UPDATE SKIP LOCKED";
 }

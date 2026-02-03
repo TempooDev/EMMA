@@ -152,4 +152,17 @@ public static class SchemaSql
         );
         CREATE INDEX IF NOT EXISTS audit_logs_timestamp_idx ON audit_logs (timestamp DESC);
         CREATE INDEX IF NOT EXISTS audit_logs_tenant_idx ON audit_logs (tenant_id);";
+
+    public const string InterconnectionFlows = @"
+        CREATE TABLE IF NOT EXISTS interconnection_flows (
+            at_time TIMESTAMPTZ NOT NULL,
+            flow_direction VARCHAR(10) NOT NULL,
+            physical_flow_mw DOUBLE PRECISION,
+            scheduled_flow_mw DOUBLE PRECISION,
+            ntc_mw DOUBLE PRECISION,
+            saturation_percentage DOUBLE PRECISION,
+            PRIMARY KEY (at_time, flow_direction)
+        );
+        SELECT create_hypertable('interconnection_flows', 'at_time', if_not_exists => TRUE);
+        CREATE INDEX IF NOT EXISTS interconnection_flows_time_idx ON interconnection_flows (at_time DESC);";
 }
