@@ -6,8 +6,19 @@ import math
 import random
 import uuid
 from datetime import datetime, timezone, timedelta
+import argparse
 
-# ... (Imports)
+try:
+    import paho.mqtt.client as mqtt
+except ImportError:
+    print("Error: paho-mqtt is not installed.")
+    print("Please install it using: pip install paho-mqtt")
+    sys.exit(1)
+
+# Configuration
+DEFAULT_BROKER_URL = "localhost"
+DEFAULT_BROKER_PORT = 1883
+TOPIC = "telemetry_raw"
 
 class Asset:
     def __init__(self, asset_id, asset_type, location):
