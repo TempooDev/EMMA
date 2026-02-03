@@ -32,6 +32,7 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                 ["asset_metrics"] = SchemaSql.AssetMetrics,
                 ["market_prices"] = SchemaSql.MarketPrices,
                 ["processed_messages"] = SchemaSql.ProcessedMessages,
+                ["asset_mappings"] = SchemaSql.AssetMappings,
                 ["asset_metrics_hourly"] = SchemaSql.AssetMetricsHourly,
                 ["asset_metrics_daily"] = SchemaSql.AssetMetricsDaily
             };
@@ -53,9 +54,8 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
             // Compression Policy for asset_metrics (separately to ignore errors safely)
             try
             {
-                // Check if policy exists or simple try/catch around the call
-                // We execute the raw command
                 await connection.ExecuteAsync($"DO $$ BEGIN {SchemaSql.AssetMetricsCompression} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
+                await connection.ExecuteAsync($"DO $$ BEGIN {SchemaSql.AssetMetricsRetention} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
             }
             catch { } // Ignore if exists or fails
             logger.LogInformation("Database initialized successfully.");

@@ -1,8 +1,9 @@
 using Dapper;
 using EMMA.Ingestion.Extensions;
 using EMMA.Ingestion.Models;
-using global::EMMA.Shared;
+using EMMA.Shared;
 using Npgsql;
+using Polly;
 using Polly.Retry;
 
 namespace EMMA.Ingestion.Data;

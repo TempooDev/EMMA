@@ -8,6 +8,8 @@ using EMMA.Ingestion.Models; // Added
 using EMMA.Shared;
 using Npgsql;
 using NpgsqlTypes;
+using Polly;
+using Polly.Retry;
 
 namespace EMMA.Ingestion;
 
@@ -137,7 +139,7 @@ public class Worker : BackgroundService
     {
         using var logScope = _logger.BeginScope("Batch processing count={Count}", batch.Count);
 
-        var parsedMessages = new List<(Guid EventId, string AssetId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
+        var parsedMessages = new List<(Guid EventId, string TechnicalId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
 
         foreach (var item in batch)
         {
@@ -145,9 +147,9 @@ public class Worker : BackgroundService
             {
                 using var doc = JsonDocument.Parse(item.Message.Value);
                 var root = doc.RootElement.Clone();
-                if (TryExtractMetadata(root, out var eventId, out var assetId, out var timestamp, out var latitude, out var longitude))
+                if (TryExtractMetadata(root, out var eventId, out var technicalId, out var timestamp, out var latitude, out var longitude))
                 {
-                    parsedMessages.Add((eventId, assetId, timestamp, latitude, longitude, root));
+                    parsedMessages.Add((eventId, technicalId, timestamp, latitude, longitude, root));
                 }
             }
             catch (JsonException)
@@ -163,6 +165,10 @@ public class Worker : BackgroundService
             using var connection = await _dataSource.OpenConnectionAsync(token);
             using var transaction = await connection.BeginTransactionAsync(token);
 
+            // Privacy: Get or Create Anonymous IDs
+            var technicalIds = parsedMessages.Select(m => m.TechnicalId).Distinct().ToList();
+            var mappings = await GetAssetMappingsAsync(connection, technicalIds, transaction, token);
+
             // Idempotency: Filter duplicates by event_id
             var eventIds = parsedMessages.Select(m => m.EventId).ToArray();
             var existingIds = await connection.QueryAsync<Guid>(
@@ -175,12 +181,13 @@ public class Worker : BackgroundService
 
             if (newMessages.Count > 0)
             {
-                // 1. Upsert Device Info (Location etc)
+                // 1. Upsert Device Info (using anonymous ID)
                 var distinctDevices = newMessages
-                    .GroupBy(m => m.AssetId)
+                    .GroupBy(m => m.TechnicalId)
                     .Select(g => new
                     {
-                        DeviceId = g.Key,
+                        TechnicalId = g.Key,
+                        AnonymousId = mappings[g.Key],
                         Latitude = g.FirstOrDefault(x => x.Latitude.HasValue).Latitude,
                         Longitude = g.FirstOrDefault(x => x.Longitude.HasValue).Longitude
                     })
@@ -188,8 +195,8 @@ public class Worker : BackgroundService
 
                 var devicesPayload = distinctDevices.Select(d => new
                 {
-                    d.DeviceId,
-                    ModelName = "Unknown Model",
+                    DeviceId = d.AnonymousId.ToString(), // Use Anonymous ID for devices table
+                    ModelName = "Anonymized Asset",
                     d.Latitude,
                     d.Longitude
                 });
@@ -198,58 +205,28 @@ public class Worker : BackgroundService
                     devicesPayload,
                     transaction: transaction);
 
-                // 2. Persist Metrics via Repository (Replacing Refined Table Insert)
-                // Map to AssetMetric
+                // 2. Persist Metrics via Repository
                 var metrics = new List<AssetMetric>(newMessages.Count);
                 foreach (var msg in newMessages)
                 {
                     if (msg.Root.TryGetProperty("measurements", out var measurements))
                     {
-                        double? power = null;
-                        double? energy = null;
-                        double? temp = null;
+                        double? power = null, energy = null, temp = null;
+                        if (measurements.TryGetProperty("power_kw", out var pElem) && pElem.ValueKind == JsonValueKind.Number) power = pElem.GetDouble();
+                        if (measurements.TryGetProperty("energy_total_kwh", out var eElem) && eElem.ValueKind == JsonValueKind.Number) energy = eElem.GetDouble();
+                        if (measurements.TryGetProperty("inverter_temp_c", out var tElem) && tElem.ValueKind == JsonValueKind.Number) temp = tElem.GetDouble();
 
-                        if (measurements.TryGetProperty("power_kw", out var pElem) && pElem.ValueKind == JsonValueKind.Number)
-                            power = pElem.GetDouble();
-
-                        if (measurements.TryGetProperty("energy_total_kwh", out var eElem) && eElem.ValueKind == JsonValueKind.Number)
-                            energy = eElem.GetDouble();
-
-                        if (measurements.TryGetProperty("inverter_temp_c", out var tElem) && tElem.ValueKind == JsonValueKind.Number)
-                            temp = tElem.GetDouble();
-
-                        metrics.Add(new AssetMetric(msg.Timestamp, msg.AssetId, power, energy, temp));
+                        // Use the anonymous ID in metrics
+                        metrics.Add(new AssetMetric(msg.Timestamp, mappings[msg.TechnicalId].ToString(), power, energy, temp));
                     }
-                }
 
-                // Call Repository used for Issue #6 (Poly resilient Dapper INSERT)
-                // Note: We are using a separate connection managed by Repository internal retry policy?
-                // Actually repository uses _dataSource.OpenConnectionAsync.
-                // WE ARE IN A TRANSACTION HERE for processed_messages and devices.
-                // The repository opens its OWN connection/transaction.
-                // This breaks the single atomic transaction assurance for the whole batch including `processed_messages`.
-                // However, `processed_messages` and `devices` uses `transaction` created above.
-                // `SaveMetricsAsync` uses its own connection.
-                // The requirement asked for "Resilience (Polly)... handle transient database connection failures".
-                // If we pass the transaction to the repository, we can't easily retry the whole transaction inside the repository without re-running the outer logic.
-                // So separating them (eventual consistency) is acceptable given the need for Retry Policy on the Metric Insert.
-                // OR we move everything to Repository?
-                // For now, I will call repository here. If metrics fail, we might successfully mark valid IDs as processed?
-                // Check flow:
-                // If repository fails (after retries), we throw. 
-                // The outer exception catch logs it. The transaction (devices/processed) is NOT committed because `transaction.CommitAsync` is at the end.
-                // So if repository throws, we rollback `devices` and `processed_messages`. Correct.
-                // BUT, repository actions are already committed?
-                // Repository `SaveMetricsAsync` uses `ExecuteAsync` ... and `BeginTransactionAsync`. It commits internally.
-                // So if repository succeeds but then `processed_messages` fails (rare), we have metrics but no event_id record. 
-                // That's acceptable (at-least-once).
-                // If `processed_messages` succeeds but repository fails -> Exception -> rollback processed -> consistent (nothing saved).
-                // Wait. `processed_messages` insert is BELOW.
+                    // Privacy: Mask logs
+                    _logger.LogInformation("Processed message {EventId} for Asset [MASKED:{Hash}]", msg.EventId, MaskId(msg.TechnicalId));
+                }
 
                 await _repository.SaveMetricsAsync(metrics, token);
 
                 // 3. Mark as Processed (Idempotency) - COPY
-                // Only if metrics saved successfully (or partially if we don't care about partials inside repository).
                 using (var writer = await connection.BeginBinaryImportAsync(
                     "COPY processed_messages (event_id, consumer_group, processed_at) FROM STDIN (FORMAT BINARY)"))
                 {
@@ -264,7 +241,7 @@ public class Worker : BackgroundService
                 }
 
                 await transaction.CommitAsync(token);
-                _logger.LogInformation("Batch processed. {Count} messages inserted.", newMessages.Count);
+                _logger.LogInformation("Batch processed. {Count} messages inserted using anonymous IDs.", newMessages.Count);
             }
             else
             {
@@ -277,6 +254,33 @@ public class Worker : BackgroundService
             _logger.LogError(ex, "Failed to process batch");
         }
     }
+
+    private async Task<Dictionary<string, Guid>> GetAssetMappingsAsync(NpgsqlConnection conn, List<string> technicalIds, NpgsqlTransaction transaction, CancellationToken ct)
+    {
+        var existing = (await conn.QueryAsync<(string TechnicalId, Guid AnonymousId)>(
+            "SELECT technical_id, anonymous_id FROM asset_mappings WHERE technical_id = ANY(@Ids)",
+            new { Ids = technicalIds },
+            transaction: transaction)).ToDictionary(x => x.TechnicalId, x => x.AnonymousId);
+
+        var missing = technicalIds.Where(id => !existing.ContainsKey(id)).ToList();
+        if (missing.Count > 0)
+        {
+            foreach (var id in missing)
+            {
+                var anonId = Guid.NewGuid();
+                await conn.ExecuteAsync(
+                    "INSERT INTO asset_mappings (technical_id, anonymous_id) VALUES (@Tech, @Anon) ON CONFLICT (technical_id) DO NOTHING",
+                    new { Tech = id, Anon = anonId },
+                    transaction: transaction);
+                existing[id] = anonId;
+            }
+        }
+
+        return existing;
+    }
+
+    private static string MaskId(string id) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id))).Substring(0, 8);
+
 
     private static bool TryExtractMetadata(JsonElement root, out Guid eventId, out string assetId, out DateTimeOffset timestamp, out double? latitude, out double? longitude)
     {

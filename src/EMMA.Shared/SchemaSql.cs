@@ -90,6 +90,13 @@ public static class SchemaSql
         );";
 
     public const string AssetMetricsCompression = "PERFORM add_compression_policy('asset_metrics', INTERVAL '30 days');";
+    public const string AssetMetricsRetention = "PERFORM add_retention_policy('asset_metrics', INTERVAL '90 days');";
+
+    public const string AssetMappings = @"
+        CREATE TABLE IF NOT EXISTS asset_mappings (
+            technical_id VARCHAR(50) PRIMARY KEY,
+            anonymous_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid()
+        );";
 
     public const string AssetMetricsHourly = @"
         CREATE MATERIALIZED VIEW IF NOT EXISTS asset_metrics_hourly
