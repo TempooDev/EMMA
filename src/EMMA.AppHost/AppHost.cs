@@ -62,4 +62,9 @@ var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
     .WithEnvironment("Jwt__Key", jwtKey)
     .WaitFor(emma_db);
 
+var solarForecaster = builder.AddPythonApp("solar-forecaster", "../EMMA.SolarForecaster", "main.py")
+    .WithReference(emma_db)
+    .WithReference(kafka)
+    .WaitFor(emma_db);
+
 builder.Build().Run();

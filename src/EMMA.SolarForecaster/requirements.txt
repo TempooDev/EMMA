@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+psycopg2-binary
+pandas
+xgboost
+scikit-learn
+confluent-kafka
+requests
+python-dotenv
