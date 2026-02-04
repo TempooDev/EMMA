@@ -10,13 +10,16 @@ public interface IAssetRepository
     Task<AssetStatusEntity?> GetStatusAsync(string id, CancellationToken ct = default);
 }
 
-public class AssetRepository(NpgsqlDataSource dataSource, ITenantProvider tenantProvider) : IAssetRepository
+public class AssetRepository(
+    [FromKeyedServices("app-db")] NpgsqlDataSource appDataSource,
+    [FromKeyedServices("telemetry-db")] NpgsqlDataSource telemetryDataSource,
+    ITenantProvider tenantProvider) : IAssetRepository
 {
     public async Task<IEnumerable<string>> GetAllIdsAsync(CancellationToken ct = default)
     {
         var tenantId = tenantProvider.TenantId;
-        using var connection = await dataSource.OpenConnectionAsync(ct);
-        
+        using var connection = await appDataSource.OpenConnectionAsync(ct);
+
         string query = "SELECT device_id FROM devices WHERE tenant_id = @TenantId";
         if (tenantProvider.IsSandbox)
         {
@@ -30,25 +33,27 @@ public class AssetRepository(NpgsqlDataSource dataSource, ITenantProvider tenant
     public async Task<AssetStatusEntity?> GetStatusAsync(string id, CancellationToken ct = default)
     {
         var tenantId = tenantProvider.TenantId;
-        using var connection = await dataSource.OpenConnectionAsync(ct);
-        
-        // Re-check tenant_id for the specific asset to prevent unauthorized access by ID
+
+        // 1. Verify ownership in app-db
+        using var appConn = await appDataSource.OpenConnectionAsync(ct);
+        string verifyQuery = "SELECT COUNT(1) FROM devices WHERE device_id = @Id AND tenant_id = @TenantId";
+        if (tenantProvider.IsSandbox) verifyQuery += " AND device_id LIKE 'sim_%'";
+
+        var exists = await appConn.ExecuteScalarAsync<bool>(verifyQuery, new { Id = id, TenantId = tenantId });
+        if (!exists) return null;
+
+        // 2. Fetch latest metrics from telemetry-db
+        using var teleConn = await telemetryDataSource.OpenConnectionAsync(ct);
         string query = @"
             SELECT 
-                m.time as LastHeartbeat,
-                m.power_kw as PowerKw
-            FROM asset_metrics m
-            JOIN devices d ON m.asset_id = d.device_id
-            WHERE d.device_id = @Id AND d.tenant_id = @TenantId";
+                time as LastHeartbeat,
+                power_kw as PowerKw
+            FROM asset_metrics
+            WHERE asset_id = @Id
+            ORDER BY time DESC 
+            LIMIT 1;";
 
-        if (tenantProvider.IsSandbox)
-        {
-            query += " AND d.device_id LIKE 'sim_%'";
-        }
-
-        query += @" ORDER BY m.time DESC LIMIT 1;";
-            
-        return await connection.QuerySingleOrDefaultAsync<AssetStatusEntity>(query, new { Id = id, TenantId = tenantId });
+        return await teleConn.QuerySingleOrDefaultAsync<AssetStatusEntity>(query, new { Id = id });
     }
 }
 

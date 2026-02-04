@@ -202,4 +202,33 @@ public static class SchemaSql
             status TEXT DEFAULT 'SUBMITTED'
         );
         CREATE INDEX IF NOT EXISTS flexibility_bids_time_idx ON flexibility_bids (at_time DESC);";
+
+    public static readonly Dictionary<string, string> AppScripts = new()
+    {
+        ["devices"] = Devices,
+        ["energy_communities"] = EnergyCommunities,
+        ["assets"] = Assets,
+        ["asset_mappings"] = AssetMappings,
+        ["processed_messages"] = ProcessedMessages
+    };
+
+    public static readonly Dictionary<string, string> TelemetryScripts = new()
+    {
+        ["raw_data_schema"] = RawDataSchema,
+        ["telemetry_raw"] = TelemetryRaw,
+        ["asset_metrics"] = AssetMetrics,
+        ["market_prices"] = MarketPrices,
+        ["asset_metrics_hourly"] = AssetMetricsHourly,
+        ["asset_metrics_daily"] = AssetMetricsDaily,
+        ["interconnection_flows"] = InterconnectionFlows,
+        ["optimization_schedules"] = OptimizationSchedules,
+        ["flexibility_bids"] = FlexibilityBids
+    };
+
+    public static readonly Dictionary<string, string> IdentityScripts = new()
+    {
+        ["users"] = Users,
+        ["audit_logs"] = AuditLogs,
+        ["api_keys"] = ApiKeys
+    };
 }

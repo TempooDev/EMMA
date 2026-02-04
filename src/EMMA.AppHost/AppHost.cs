@@ -4,7 +4,9 @@ var postgresql = builder.AddPostgres("postgresql")
     .WithImage("timescale/timescaledb", "latest-pg17")
     .WithPgAdmin();
 
-var emma_db = postgresql.AddDatabase("emma-db");
+var identityDb = postgresql.AddDatabase("identity-db");
+var appDb = postgresql.AddDatabase("app-db");
+var telemetryDb = postgresql.AddDatabase("telemetry-db");
 
 var kafka = builder.AddKafka("messaging")
     .WithKafkaUI();
@@ -26,31 +28,33 @@ var simulator = builder.AddPythonApp("energy-simulator", "../energy-simulator", 
 var server = builder.AddProject<Projects.EMMA_Server>("server")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
-    .WithReference(emma_db)
+    .WithReference(appDb)
+    .WithReference(telemetryDb)
     .WithEnvironment("Jwt__Key", jwtKey)
     .WithEnvironment("Jwt__Issuer", "emma-identity")
     .WithEnvironment("Jwt__Audience", "emma-api")
-    .WaitFor(emma_db);
+    .WaitFor(appDb)
+    .WaitFor(telemetryDb);
 
 var marketService = builder.AddProject<Projects.EMMA_MarketService>("market-service")
     .WithReference(kafka)
-    .WithReference(emma_db)
+    .WithReference(telemetryDb)
     .WaitFor(kafka)
     .WaitFor(server);
 
 var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
-    .WithReference(emma_db)
+    .WithReference(telemetryDb)
     .WithReference(kafka)
-    .WaitFor(emma_db)
+    .WaitFor(telemetryDb)
     .WaitFor(kafka)
     .WaitFor(server);
 
 var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
-    .WithReference(emma_db)
+    .WithReference(identityDb)
     .WithEnvironment("Jwt__Key", jwtKey)
     .WithEnvironment("Jwt__Issuer", "emma-identity")
     .WithEnvironment("Jwt__Audience", "emma-api")
-    .WaitFor(emma_db);
+    .WaitFor(identityDb);
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
@@ -64,22 +68,24 @@ var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-s
     .WaitFor(kafka);
 
 var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
-    .WithReference(emma_db)
+    .WithReference(appDb)
+    .WithReference(telemetryDb)
     .WithReference(kafka) // if needed later
     .WithEnvironment("Jwt__Key", jwtKey)
     .WithEnvironment("Jwt__Issuer", "emma-identity")
     .WithEnvironment("Jwt__Audience", "emma-api")
-    .WaitFor(emma_db);
+    .WaitFor(appDb)
+    .WaitFor(telemetryDb);
 
 var solarForecaster = builder.AddPythonApp("solar-forecaster", "../EMMA.SolarForecaster", "main.py")
-    .WithReference(emma_db)
+    .WithReference(telemetryDb)
     .WithReference(kafka)
-    .WaitFor(emma_db);
+    .WaitFor(telemetryDb);
 
 var optimizer = builder.AddPythonApp("optimizer", "../EMMA.Optimizer", "main.py")
-    .WithReference(emma_db)
+    .WithReference(telemetryDb)
     .WithReference(kafka)
-    .WaitFor(emma_db)
+    .WaitFor(telemetryDb)
     .WaitFor(solarForecaster);
 
 builder.Build().Run();

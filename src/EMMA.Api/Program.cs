@@ -47,10 +47,17 @@ builder.Services.AddOpenApi(options =>
 });
 
 // Dapper / Npgsql
-builder.Services.AddSingleton<NpgsqlDataSource>(sp =>
+builder.Services.AddKeyedSingleton<NpgsqlDataSource>("app-db", (sp, key) =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db")
-        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    var connectionString = builder.Configuration.GetConnectionString("app-db")
+        ?? throw new InvalidOperationException("Connection string 'app-db' is missing.");
+    return NpgsqlDataSource.Create(connectionString);
+});
+
+builder.Services.AddKeyedSingleton<NpgsqlDataSource>("telemetry-db", (sp, key) =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("telemetry-db")
+        ?? throw new InvalidOperationException("Connection string 'telemetry-db' is missing.");
     return NpgsqlDataSource.Create(connectionString);
 });
 

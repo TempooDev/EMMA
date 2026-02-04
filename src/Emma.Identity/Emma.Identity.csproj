@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EMMA.ServiceDefaults\EMMA.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\EMMA.Shared\EMMA.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

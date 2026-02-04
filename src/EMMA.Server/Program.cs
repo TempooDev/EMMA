@@ -33,9 +33,13 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// Configure database and initializer
-builder.Services.AddSingleton<NpgsqlDataSource>(sp =>
-    NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("emma-db")!));
+// Configure databases and initializer
+builder.Services.AddKeyedSingleton<NpgsqlDataSource>("app-db", (sp, key) =>
+    NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("app-db") ?? throw new InvalidOperationException("Connection string 'app-db' is missing.")));
+
+builder.Services.AddKeyedSingleton<NpgsqlDataSource>("telemetry-db", (sp, key) =>
+    NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("telemetry-db") ?? throw new InvalidOperationException("Connection string 'telemetry-db' is missing.")));
+
 builder.Services.AddHostedService<DbInitializer>();
 
 builder.Services.AddHttpContextAccessor();

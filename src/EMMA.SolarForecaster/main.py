@@ -18,7 +18,7 @@ logger = logging.getLogger("solar-forecaster")
 app = FastAPI(title="EMMA Solar Forecaster")
 
 # Configuration from environment variables (injected by Aspire)
-DB_CONNECTION = os.getenv("ConnectionStrings__emma-db")
+DB_CONNECTION = os.getenv("ConnectionStrings__telemetry-db")
 KAFKA_BROKERS = os.getenv("ConnectionStrings__messaging")
 KAFKA_TOPIC = "solar-predictions"
 

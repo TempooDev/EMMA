@@ -6,9 +6,8 @@ public static class Queries
         WITH metric_data AS (
             SELECT time_bucket(@Bucket::interval, m.time) as bucket_time, AVG(m.power_kw) as avg_power
             FROM asset_metrics m
-            INNER JOIN public.devices d ON m.asset_id = d.device_id
-            WHERE m.time BETWEEN @Start AND @End
-            AND d.tenant_id = @TenantId
+            WHERE m.asset_id = ANY(@DeviceIds)
+            AND m.time BETWEEN @Start AND @End
             GROUP BY bucket_time
         ),
         price_data AS (
@@ -45,6 +44,8 @@ public static class Queries
             (m.power_kw > 0 AND (SELECT price FROM current_price) <= 0) as IsChargingNegativePrice
         FROM devices d
         LEFT JOIN LATERAL (
+            -- This part is for information purposes. Caller must ensure devices are from the same DB 
+            -- or this query should be split. For GetDeviceStatus, we'll likely fetch metrics separately.
             SELECT power_kw, temperature, time 
             FROM asset_metrics 
             WHERE asset_id = d.device_id 
@@ -92,19 +93,11 @@ public static class Queries
 
     public const string GetVppCapacityByZone = @"
         SELECT 
-            d.market_zone as MarketZone,
-            SUM(m.power_kw) as TotalPowerKw,
-            COUNT(d.device_id) as DeviceCount
-        FROM devices d
-        INNER JOIN LATERAL (
-            SELECT power_kw 
-            FROM asset_metrics 
-            WHERE asset_id = d.device_id 
-            AND time > NOW() - INTERVAL '5 minutes'
-            ORDER BY time DESC 
-            LIMIT 1
-        ) m ON true
-        GROUP BY d.market_zone;
+            asset_id as AssetId,
+            power_kw as PowerKw
+        FROM asset_metrics
+        WHERE time > NOW() - INTERVAL '5 minutes'
+        ORDER BY time DESC;
     ";
 
     public const string InsertFlexibilityBid = @"
@@ -156,10 +149,9 @@ public static class Queries
                 SUM(m.power_kw * (5.0/3600.0)) as total_kwh,
                 SUM(CASE WHEN p.price < 0 THEN m.power_kw * (5.0/3600.0) ELSE 0 END) as negative_price_kwh
             FROM asset_metrics m
-            INNER JOIN devices d ON m.asset_id = d.device_id
             LEFT JOIN market_prices p ON time_bucket('5 seconds', m.time) = time_bucket('5 seconds', p.time) AND p.source = 'REData'
             WHERE m.time >= CURRENT_DATE
-            AND d.tenant_id = @TenantId
+            AND m.asset_id = ANY(@DeviceIds)
         )
         SELECT 
             COALESCE((SELECT avg_price FROM day_prices) - (SELECT price FROM current_price), 0) * COALESCE((SELECT total_kwh FROM today_metrics), 0) / 1000.0 as TotalSavingsEur,

@@ -7,7 +7,7 @@ using Polly.Extensions.Http;
 
 var builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
-builder.AddNpgsqlDataSource("emma-db");
+builder.AddNpgsqlDataSource("telemetry-db");
 
 // Polly Policy
 var retryPolicy = HttpPolicyExtensions

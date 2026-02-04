@@ -12,7 +12,7 @@ public interface IMarketRepository
 
 public record InterconnectionStatusEntity(double SaturationPercentage, string Direction);
 
-public class MarketRepository(NpgsqlDataSource dataSource) : IMarketRepository
+public class MarketRepository([FromKeyedServices("telemetry-db")] NpgsqlDataSource dataSource) : IMarketRepository
 {
     public async Task<MarketSummaryEntity?> GetCurrentPriceAsync(CancellationToken ct = default)
     {
@@ -40,7 +40,7 @@ public class MarketRepository(NpgsqlDataSource dataSource) : IMarketRepository
             SELECT (MAX(price) - MIN(price)) > 50 as IsArbitrageActive
             FROM valid_prices;
         ";
-        
+
         return await connection.ExecuteScalarAsync<bool>(query);
     }
 
@@ -54,7 +54,7 @@ public class MarketRepository(NpgsqlDataSource dataSource) : IMarketRepository
             FROM interconnection_flows
             ORDER BY at_time DESC
             LIMIT 1;";
-        
+
         return await connection.QuerySingleOrDefaultAsync<InterconnectionStatusEntity>(query);
     }
 }

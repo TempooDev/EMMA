@@ -15,7 +15,7 @@ logger = logging.getLogger("optimizer-engine")
 app = FastAPI(title="EMMA Load-Shifting Optimizer")
 
 # Configuration
-DB_CONNECTION = os.getenv("ConnectionStrings__emma-db")
+DB_CONNECTION = os.getenv("ConnectionStrings__telemetry-db")
 KAFKA_BROKERS = os.getenv("ConnectionStrings__messaging")
 SOLAR_TOPIC = "solar-predictions"
 COMMAND_TOPIC = "asset-commands"

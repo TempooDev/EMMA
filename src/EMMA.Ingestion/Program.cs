@@ -4,7 +4,7 @@ using EMMA.Ingestion.Data;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddServiceDefaults();
-builder.AddNpgsqlDataSource("emma-db");
+builder.AddNpgsqlDataSource("telemetry-db");
 builder.AddKafkaConsumer<string, string>("messaging", settings =>
 {
     settings.Config.GroupId = "ingestion-group";

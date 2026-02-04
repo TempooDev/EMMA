@@ -4,6 +4,7 @@ using Emma.Identity.Data;
 using Emma.Identity.Endpoints;
 using Emma.Identity.Models;
 using Emma.Identity.Services;
+using EMMA.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,15 +19,15 @@ builder.AddServiceDefaults();
 // Database
 builder.Services.AddDbContext<IdentityDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db")
-        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    var connectionString = builder.Configuration.GetConnectionString("identity-db")
+        ?? throw new InvalidOperationException("Connection string 'identity-db' is missing.");
     options.UseNpgsql(connectionString);
 });
 
 builder.Services.AddSingleton<Npgsql.NpgsqlDataSource>(sp =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db")
-        ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
+    var connectionString = builder.Configuration.GetConnectionString("identity-db")
+        ?? throw new InvalidOperationException("Connection string 'identity-db' is missing.");
     return Npgsql.NpgsqlDataSource.Create(connectionString);
 });
 
@@ -92,6 +93,12 @@ using (var scope = app.Services.CreateScope())
         {
             await creator.CreateTablesAsync();
         }
+    }
+
+    // Additionally initialize AuditLogs and ApiKeys which are not in the EF model
+    foreach (var script in SchemaSql.IdentityScripts)
+    {
+        await conn.ExecuteAsync(script.Value);
     }
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
