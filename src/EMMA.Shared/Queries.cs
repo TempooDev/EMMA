@@ -4,9 +4,11 @@ public static class Queries
 {
     public const string GetEnergyMix = @"
         WITH metric_data AS (
-            SELECT time_bucket(@Bucket::interval, time) as bucket_time, AVG(power_kw) as avg_power
-            FROM asset_metrics
-            WHERE time BETWEEN @Start AND @End
+            SELECT time_bucket(@Bucket::interval, m.time) as bucket_time, AVG(m.power_kw) as avg_power
+            FROM asset_metrics m
+            INNER JOIN public.devices d ON m.asset_id = d.device_id
+            WHERE m.time BETWEEN @Start AND @End
+            AND d.tenant_id = @TenantId
             GROUP BY bucket_time
         ),
         price_data AS (
@@ -38,7 +40,8 @@ public static class Queries
             WHERE asset_id = d.device_id 
             ORDER BY time DESC 
             LIMIT 1
-        ) m ON true;
+        ) m ON true
+        WHERE d.tenant_id = @TenantId;
     ";
 
     public const string InsertMarketPrice = @"

@@ -37,7 +37,10 @@ builder.Services.AddOpenApi();
 builder.Services.AddSingleton<NpgsqlDataSource>(sp =>
     NpgsqlDataSource.Create(builder.Configuration.GetConnectionString("emma-db")!));
 builder.Services.AddHostedService<DbInitializer>();
-builder.Services.AddSingleton<DashboardRepository>(); // Added Repo
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<EMMA.Server.Infrastructure.Identity.ITenantProvider, EMMA.Server.Infrastructure.Identity.TenantProvider>();
+builder.Services.AddScoped<DashboardRepository>(); // Changed to Scoped
 
 var app = builder.Build();
 

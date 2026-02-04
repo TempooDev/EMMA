@@ -19,6 +19,7 @@ except ImportError:
 DEFAULT_BROKER_URL = "localhost"
 DEFAULT_BROKER_PORT = 1883
 TOPIC = "telemetry_raw"
+TENANT_ID = os.getenv("TENANT_ID", "DEFAULT_TENANT")
 
 class Asset:
     def __init__(self, asset_id, asset_type, location):
@@ -60,7 +61,8 @@ class Asset:
             "header": {
                 "event_id": event_id,
                 "version": "1.0",
-                "asset_id": self.asset_id
+                "asset_id": self.asset_id,
+                "tenant_id": TENANT_ID
             },
             "location": self.location,
             "measurements": measurements,

@@ -20,6 +20,7 @@ var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-brid
 
 var simulator = builder.AddPythonApp("energy-simulator", "../energy-simulator", "main.py")
     .WithEnvironment("MQTT_BROKER_URL", mqttBridge.GetEndpoint("mqtt-port"))
+    .WithEnvironment("TENANT_ID", "T001")
     .WaitFor(mqttBridge);
 
 var server = builder.AddProject<Projects.EMMA_Server>("server")
