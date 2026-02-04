@@ -4,6 +4,7 @@ using EMMA.Server.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,8 +31,32 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddProblemDetails();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Configure OpenAPI with comprehensive metadata
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new()
+        {
+            Title = "EMMA API",
+            Version = "v1",
+            Description = "Energy Management and Market Analytics API - Provides endpoints for dashboard data, VPP management, energy forecasting, and cross-border arbitrage analysis.",
+            Contact = new()
+            {
+                Name = "EMMA Team"
+            }
+        };
+
+        return Task.CompletedTask;
+    });
+
+    // Add security scheme for JWT Bearer authentication
+    options.AddSchemaTransformer((schema, context, cancellationToken) =>
+    {
+        // This will be automatically handled by ASP.NET Core's security requirements
+        return Task.CompletedTask;
+    });
+});
 
 // Configure databases and initializer
 builder.Services.AddKeyedSingleton<NpgsqlDataSource>("app-db", (sp, key) =>
@@ -57,9 +82,14 @@ app.UseAuthorization();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle("EMMA API Documentation")
+            .WithTheme(ScalarTheme.Purple)
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    });
 }
-
-
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 

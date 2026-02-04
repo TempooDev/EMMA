@@ -23,7 +23,7 @@ public static class ApiKeyEndpoints
             }
 
             var apiKey = Guid.NewGuid().ToString("N");
-            
+
             using var connection = await dataSource.OpenConnectionAsync();
             await connection.ExecuteAsync(
                 "INSERT INTO api_keys (key, owner_id, tenant_id) VALUES (@Key, @OwnerId, @TenantId)",
@@ -32,7 +32,12 @@ public static class ApiKeyEndpoints
             return Results.Ok(new { ApiKey = apiKey });
         })
         .WithName("GenerateApiKey")
-        .WithOpenApi();
+        .WithSummary("Generate new API key")
+        .WithDescription("Creates a new API key for the authenticated user. The API key can be used for programmatic access to EMMA APIs without requiring JWT authentication.")
+        .WithTags("API Keys")
+        .Produces<object>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
 
         group.MapGet("/", async (ClaimsPrincipal user, NpgsqlDataSource dataSource) =>
         {
@@ -51,6 +56,11 @@ public static class ApiKeyEndpoints
             return Results.Ok(keys);
         })
         .WithName("ListApiKeys")
-        .WithOpenApi();
+        .WithSummary("List user's API keys")
+        .WithDescription("Retrieves all API keys belonging to the authenticated user, including their creation date and active status.")
+        .WithTags("API Keys")
+        .Produces<object>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status401Unauthorized)
+        .RequireAuthorization();
     }
 }

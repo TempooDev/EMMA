@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +43,25 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<IdentityDbContext>()
 .AddDefaultTokenProviders();
 
-builder.Services.AddOpenApi();
+// Configure OpenAPI with comprehensive metadata
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
+    {
+        document.Info = new()
+        {
+            Title = "EMMA Identity API",
+            Version = "v1",
+            Description = "Authentication and authorization service for EMMA - Handles user authentication, JWT token generation, and API key management.",
+            Contact = new()
+            {
+                Name = "EMMA Team"
+            }
+        };
+
+        return Task.CompletedTask;
+    });
+});
 
 // Authentication & JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
@@ -67,6 +86,19 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 var app = builder.Build();
 
 app.MapDefaultEndpoints();
+
+// Configure Scalar API documentation in development
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(options =>
+    {
+        options
+            .WithTitle("EMMA Identity API Documentation")
+            .WithTheme(ScalarTheme.Purple)
+            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    });
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
