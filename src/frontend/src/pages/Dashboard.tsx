@@ -116,14 +116,12 @@ export function Dashboard({ token }: DashboardProps) {
             >
               Chart
             </button>
-            {/* 
             <button
               onClick={() => setActiveTab('arbitrage')}
               style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'arbitrage' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
             >
               Arbitrage
             </button>
-            */}
           </div>
           <select
             value={bucket}
@@ -185,7 +183,7 @@ export function Dashboard({ token }: DashboardProps) {
             )}
           </div>
         ) : (
-          <CrossBorderArbitrage />
+          <CrossBorderArbitrage token={token} />
         )}
       </div>
     </div>

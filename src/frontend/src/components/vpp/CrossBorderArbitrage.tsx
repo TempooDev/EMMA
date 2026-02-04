@@ -11,13 +11,21 @@ interface ArbitrageData {
     flowDirection: string;
 }
 
-const CrossBorderArbitrage: React.FC = () => {
+interface CrossBorderArbitrageProps {
+    token: string;
+}
+
+const CrossBorderArbitrage: React.FC<CrossBorderArbitrageProps> = ({ token }) => {
     const [data, setData] = useState<ArbitrageData | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/dashboard/arbitrage');
+                const response = await fetch('/api/dashboard/arbitrage', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
                 const json = await response.json();
                 setData(json);
             } catch (error) {
@@ -28,7 +36,7 @@ const CrossBorderArbitrage: React.FC = () => {
         fetchData();
         const interval = setInterval(fetchData, 30000); // 30s
         return () => clearInterval(interval);
-    }, []);
+    }, [token]);
 
     if (!data) return <div style={{ color: '#aaa' }}>Loading Arbitrage Data...</div>;
 

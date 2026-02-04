@@ -64,7 +64,7 @@ public static class Queries
             tenant_id = EXCLUDED.tenant_id,
             market_zone = EXCLUDED.market_zone;
     ";
-    
+
     public const string InsertInterconnectionFlow = @"
         INSERT INTO interconnection_flows (at_time, flow_direction, physical_flow_mw, scheduled_flow_mw, ntc_mw, saturation_percentage)
         VALUES (@Time, @Direction, @PhysicalFlow, @ScheduledFlow, @Ntc, @Saturation)
@@ -103,20 +103,20 @@ public static class Queries
         WITH current_prices AS (
             SELECT DISTINCT ON (source) source, price, time
             FROM market_prices
-            WHERE source IN ('ENTSO-E-ES', 'ENTSO-E-FR')
-            AND time > NOW() - INTERVAL '2 hours'
+            WHERE source IN ('REData', 'SIMULATED-FR')
+            AND time > NOW() - INTERVAL '4 hours'
             ORDER BY source, time DESC
         ),
         current_flow AS (
             SELECT physical_flow_mw, scheduled_flow_mw, ntc_mw, saturation_percentage, flow_direction, at_time
             FROM interconnection_flows
-            WHERE at_time > NOW() - INTERVAL '1 hour'
+            WHERE at_time > NOW() - INTERVAL '2 hours'
             ORDER BY at_time DESC
             LIMIT 1
         )
         SELECT 
-            (SELECT price FROM current_prices WHERE source = 'ENTSO-E-ES') as PriceEs,
-            (SELECT price FROM current_prices WHERE source = 'ENTSO-E-FR') as PriceFr,
+            (SELECT price FROM current_prices WHERE source = 'REData') as PriceEs,
+            (SELECT price FROM current_prices WHERE source = 'SIMULATED-FR') as PriceFr,
             f.physical_flow_mw as PhysicalFlowMw,
             f.ntc_mw as NtcMw,
             f.saturation_percentage as SaturationPercentage,

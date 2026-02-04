@@ -50,6 +50,32 @@ public class Worker(
                     }
                 }
 
+                // --- Simulation: France Prices & Interconnection Flows ---
+                // This enables the Arbitrage visualization.
+                // France price is usually lower/higher than Spain depending on wind/solar.
+                // Let's simulate a random variation from the Spanish price.
+                var random = new Random();
+                var frPrices = prices.Select(p => new PricingValue
+                {
+                    Datetime = p.Datetime,
+                    Value = p.Value + (random.NextDouble() * 40 - 20) // +/- 20 EUR spread
+                }).ToList();
+
+                await repository.SavePricesAsync(frPrices, "EUR", "SIMULATED-FR", stoppingToken);
+
+                // Simulate Flow: ES -> FR or FR -> ES
+                await repository.SaveFlowAsync(
+                    DateTimeOffset.UtcNow,
+                    random.Next(2) == 0 ? "ES>FR" : "FR>ES",
+                    random.NextDouble() * 2000, // 0-2000 MW physical
+                    random.NextDouble() * 1800, // scheduled
+                    2500, // NTC
+                    random.NextDouble() * 100, // Saturation %
+                    stoppingToken
+                );
+
+                logger.LogInformation("Simulated France prices and Interconnection flows for Arbitrage.");
+
                 // Sleep for 1 hour
                 await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
             }
