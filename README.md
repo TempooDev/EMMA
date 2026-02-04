@@ -14,7 +14,7 @@ In a market where prices can range from €130/MWh in France to negative values 
 
 Designed with a focus on **decoupled microservices** and high availability:
 
-- **Ingestion Engine:** Microservices in Go/Node.js processing messages via **MQTT/NATS**.
+- **Ingestion & Strategy Engine:** Distributed microservices in .NET and Python processing messages via **MQTT/Kafka**.
 - **Data Core:** Hybrid architecture with **PostgreSQL** for business logic and **TimescaleDB** for massive time series storage with native compression.
 
 - **Market Intelligence:** Integration with the **REData** API for monitoring intraday prices and European interconnection congestion.
@@ -55,7 +55,7 @@ Open the **Aspire Dashboard** (link provided in terminal) to monitor all microse
 
 ### 2. Audit Logging
 To verify that sensitive actions are tracked:
-1. Use the **Swagger UI** in `emma-api` to perform a `POST` or `PUT` request (e.g., updating an asset).
+1. Use the **Swagger UI** in `Emma.Api` to perform a `POST` or `PUT` request (e.g., updating an asset).
 2. Query the `audit_logs` table in PostgreSQL:
    ```sql
    SELECT * FROM audit_logs ORDER BY timestamp DESC;
@@ -67,7 +67,7 @@ The `market-service` automatically monitors the ES-FR link:
 1. Check the `market-service` logs in the Aspire Dashboard.
 2. Look for `Checking ES-FR Interconnection Flows...`.
 3. If saturation is >90% (simulated in mock), you will see: `ALERT: ES-FR Interconnection Saturated. Price decoupling highly likely.`
-4. Verify the API response in `emma-api` via `/market/summary` includes the `MarketWarning` and current **REData** pricing.
+4. Verify the API response in `Emma.Api` via `/market/summary` includes the `MarketWarning` and current **REData** pricing.
 
 ### 4. Solar Generation Prediction
 The `solar-forecaster` (Python) runs every 6 hours or can be triggered manually:
@@ -80,6 +80,6 @@ The `solar-forecaster` (Python) runs every 6 hours or can be triggered manually:
 
 ### 5. Secret Management
 Verify that no keys are hardcoded:
-1. Check `src/Emma.Identity/appsettings.json` and `src/EMMA.Api/appsettings.json`.
+1. Check `src/Emma.Identity/appsettings.json` and `src/Emma.Api/appsettings.json`.
 2. Notice that `Jwt:Key` is missing. It is injected at runtime via Aspire environment variables (`Jwt__Key`).
 
