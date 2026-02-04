@@ -54,6 +54,13 @@ public class DashboardRepository(NpgsqlDataSource dataSource, ITenantProvider te
         using var connection = await dataSource.OpenConnectionAsync(cts);
         return await connection.QueryFirstOrDefaultAsync<ArbitrageDto>(Queries.GetCrossBorderArbitrage);
     }
+
+    public async Task<ImpactMetricsDto?> GetImpactMetricsAsync(CancellationToken cts = default)
+    {
+        var tenantId = tenantProvider.TenantId;
+        using var connection = await dataSource.OpenConnectionAsync(cts);
+        return await connection.QueryFirstOrDefaultAsync<ImpactMetricsDto>(Queries.GetImpactMetrics, new { TenantId = tenantId });
+    }
 }
 
 public class ArbitrageDto
@@ -64,6 +71,13 @@ public class ArbitrageDto
     public double? NtcMw { get; set; }
     public double? SaturationPercentage { get; set; }
     public string? FlowDirection { get; set; }
+}
+
+public class ImpactMetricsDto
+{
+    public double TotalSavingsEur { get; set; }
+    public double NegativePriceEnergyKwh { get; set; }
+    public double CurrentPriceEurMwh { get; set; }
 }
 
 public class DeviceStatusDto

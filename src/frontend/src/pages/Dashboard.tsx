@@ -12,6 +12,7 @@ import {
   Brush
 } from 'recharts';
 import CrossBorderArbitrage from '../components/vpp/CrossBorderArbitrage';
+import ImpactCounter from '../components/vpp/ImpactCounter';
 
 interface EnergyData {
   time: string;
@@ -158,6 +159,8 @@ export function Dashboard({ token }: DashboardProps) {
           </button>
         </div>
       </div>
+
+      <ImpactCounter token={token} />
 
       <div style={{ minHeight: '550px', width: '100%', background: '#1e1e1e', borderRadius: '8px', padding: '20px' }}>
         {activeTab === 'chart' ? (

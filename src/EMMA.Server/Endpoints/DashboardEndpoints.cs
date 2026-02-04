@@ -65,6 +65,16 @@ public static class DashboardEndpoints
         })
         .WithName("GetCrossBorderArbitrage")
         .WithOpenApi();
+
+        group.MapGet("/impact-metrics", async (
+            [FromServices] DashboardRepository repository,
+            CancellationToken ct = default) =>
+        {
+            var metrics = await repository.GetImpactMetricsAsync(ct);
+            return metrics is not null ? Results.Ok(metrics) : Results.NotFound();
+        })
+        .WithName("GetImpactMetrics")
+        .WithOpenApi();
     }
 }
 

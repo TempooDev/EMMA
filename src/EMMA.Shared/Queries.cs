@@ -126,4 +126,34 @@ public static class Queries
             f.flow_direction as FlowDirection
         FROM current_flow f;
     ";
+
+    public const string GetImpactMetrics = @"
+        WITH day_prices AS (
+            SELECT AVG(price) as avg_price
+            FROM market_prices
+            WHERE time >= CURRENT_DATE
+            AND source = 'REData'
+        ),
+        current_price AS (
+            SELECT price 
+            FROM market_prices 
+            WHERE source = 'REData' 
+            ORDER BY time DESC 
+            LIMIT 1
+        ),
+        today_metrics AS (
+            SELECT 
+                SUM(m.power_kw * (5.0/3600.0)) as total_kwh,
+                SUM(CASE WHEN p.price < 0 THEN m.power_kw * (5.0/3600.0) ELSE 0 END) as negative_price_kwh
+            FROM asset_metrics m
+            INNER JOIN devices d ON m.asset_id = d.device_id
+            LEFT JOIN market_prices p ON time_bucket('5 seconds', m.time) = time_bucket('5 seconds', p.time) AND p.source = 'REData'
+            WHERE m.time >= CURRENT_DATE
+            AND d.tenant_id = @TenantId
+        )
+        SELECT 
+            COALESCE((SELECT avg_price FROM day_prices) - (SELECT price FROM current_price), 0) * COALESCE((SELECT total_kwh FROM today_metrics), 0) / 1000.0 as TotalSavingsEur,
+            COALESCE((SELECT negative_price_kwh FROM today_metrics), 0) as NegativePriceEnergyKwh,
+            COALESCE((SELECT price FROM current_price), 0) as CurrentPriceEurMwh;
+    ";
 }
