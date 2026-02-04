@@ -7,7 +7,7 @@
 In a market where prices can range from €130/MWh in France to negative values in Spain, EMMA acts as a centralized brain that:
 
 - **Synchronizes:** Ingests massive telemetry from IoT assets (solar panels, batteries, EV chargers) using lightweight protocols.
-- **Analyzes:** Processes data from the European market operator (ENTSO-E) to identify opportunities for **energy arbitrage**.
+- **Analyzes:** Processes data from the Spanish market operator (**REData**) and European markets to identify opportunities for **energy arbitrage**.
 - **Optimizes:** Automates asset consumption when the grid has surpluses (negative prices), reducing the carbon footprint and operating costs.
 
 ## 🛠️ Technology Stack & Architecture
@@ -17,8 +17,26 @@ Designed with a focus on **decoupled microservices** and high availability:
 - **Ingestion Engine:** Microservices in Go/Node.js processing messages via **MQTT/NATS**.
 - **Data Core:** Hybrid architecture with **PostgreSQL** for business logic and **TimescaleDB** for massive time series storage with native compression.
 
-- **Market Intelligence:** Integration with the **ENTSO-E** API for monitoring intraday prices and interconnection congestion.
-- **DevOps:** Orchestrated deployment using **Docker** and real-time observability with **Grafana**.
+- **Market Intelligence:** Integration with the **REData** API for monitoring intraday prices and European interconnection congestion.
+- **Frontend Observability:** Real-time visualization and asset monitoring using **React**, **Recharts**, and **Leaflet** for interactive geographic distribution.
+- **Infrastructure:** Orchestrated deployment using **Docker** and .NET Aspire for microservice management.
+
+## 📦 Services & Components
+
+| Service | Goal | Technology |
+| :--- | :--- | :--- |
+| **EMMA.AppHost** | Main orchestrator managing service lifecycle and network dependencies. | .NET Aspire |
+| **Emma.Server** | Core API providing dashboard metrics, asset control, and arbitrage analytics. | .NET 9 |
+| **Emma.Dashboard** | High-performance React frontend providing real-time observability, predictive analytics, and asset maps. | React + Vite |
+| **EMMA.MarketService** | Continuous monitor for market prices (**REData**), congestion, and inter-border flows. | .NET Worker |
+| **EMMA.CommandService** | Asset controller executing real-time setpoint adjustments and arbitrage strategies. | .NET Worker |
+| **EMMA.SolarForecaster**| Machine learning service providing solar production forecasts for the next 24h. | Python (FastAPI) |
+| **EMMA.Optimizer** | Advanced optimization engine calculating the best setpoints for multi-asset communities. | Python |
+| **Energy Simulator** | Multi-asset IoT simulator generating realistic telemetry and price scenarios. | Python |
+| **EMMA.Ingestion** | Scalable telemetry ingestor processing MQTT/Kafka streams into TimescaleDB. | .NET Worker |
+| **MQTT-Kafka Bridge** | High-performance message bridge for translating IoT protocols to the data bus. | Fluent Bit |
+| **TimescaleDB Core** | Time-series database optimized for energy metrics with native compression. | TimescaleDB |
+| **Emma.Identity** | Robust authentication service ensuring multi-tenant data isolation. | .NET 9 |
 
 ## 🇪🇺 Compliance & EU Standards
 
@@ -33,7 +51,7 @@ Ensure you have the .NET SDK and Docker installed, then run:
 ```bash
 dotnet run --project src/EMMA.AppHost
 ```
-Open the **Aspire Dashboard** (link provided in terminal) to monitor all microservices.
+Open the **Aspire Dashboard** (link provided in terminal) to monitor all microservices or use the **Emma Dashboard** for asset observability.
 
 ### 2. Audit Logging
 To verify that sensitive actions are tracked:
@@ -44,12 +62,12 @@ To verify that sensitive actions are tracked:
    ```
 3. Confirm the user ID, tenant ID, and payload are correctly captured.
 
-### 3. ENTSO-E Interconnection Monitor
+### 3. Market & Interconnection Monitor
 The `market-service` automatically monitors the ES-FR link:
 1. Check the `market-service` logs in the Aspire Dashboard.
 2. Look for `Checking ES-FR Interconnection Flows...`.
 3. If saturation is >90% (simulated in mock), you will see: `ALERT: ES-FR Interconnection Saturated. Price decoupling highly likely.`
-4. Verify the API response in `emma-api` via `/market/summary` includes the `MarketWarning`.
+4. Verify the API response in `emma-api` via `/market/summary` includes the `MarketWarning` and current **REData** pricing.
 
 ### 4. Solar Generation Prediction
 The `solar-forecaster` (Python) runs every 6 hours or can be triggered manually:
