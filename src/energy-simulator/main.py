@@ -18,7 +18,7 @@ except ImportError:
 # Configuration
 DEFAULT_BROKER_URL = "localhost"
 DEFAULT_BROKER_PORT = 1883
-TOPIC = "telemetry_raw"
+TOPIC = "telemetry-raw"
 TENANT_ID = os.getenv("TENANT_ID", "DEFAULT_TENANT")
 
 class Asset:

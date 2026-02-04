@@ -98,8 +98,11 @@ public static class SchemaSql
         CREATE TABLE IF NOT EXISTS asset_mappings (
             technical_id VARCHAR(50) PRIMARY KEY,
             anonymous_id UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
-            tenant_id VARCHAR(50)
-        );";
+            tenant_id VARCHAR(50),
+            market_zone VARCHAR(50) DEFAULT 'Iberica-ES'
+        );
+        ALTER TABLE devices ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES';
+        ALTER TABLE asset_mappings ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES';";
 
     public const string AssetMetricsHourly = @"
         CREATE MATERIALIZED VIEW IF NOT EXISTS asset_metrics_hourly

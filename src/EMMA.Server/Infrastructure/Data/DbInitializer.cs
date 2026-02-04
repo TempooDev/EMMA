@@ -58,6 +58,7 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
 
             // Fix existing table to add market_zone (for legacy databases)
             await connection.ExecuteAsync("ALTER TABLE devices ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES'");
+            await connection.ExecuteAsync("ALTER TABLE asset_mappings ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES'");
 
             // Compression Policy for asset_metrics (separately to ignore errors safely)
             try
