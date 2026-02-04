@@ -55,6 +55,16 @@ public static class DashboardEndpoints
         })
         .WithName("SubmitFlexibilityBid")
         .WithOpenApi();
+
+        group.MapGet("/arbitrage", async (
+            [FromServices] DashboardRepository repository,
+            CancellationToken ct = default) =>
+        {
+            var data = await repository.GetCrossBorderArbitrageAsync(ct);
+            return data != null ? Results.Ok(data) : Results.NotFound();
+        })
+        .WithName("GetCrossBorderArbitrage")
+        .WithOpenApi();
     }
 }
 

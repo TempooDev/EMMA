@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   Brush
 } from 'recharts';
+import CrossBorderArbitrage from '../components/vpp/CrossBorderArbitrage';
 
 interface EnergyData {
   time: string;
@@ -21,6 +22,7 @@ interface EnergyData {
 export function Dashboard() {
   const [data, setData] = useState<EnergyData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage'>('chart');
 
   // Default to today (start of day to end of day)
   const [startDate, setStartDate] = useState(() => {
@@ -45,7 +47,6 @@ export function Dashboard() {
 
       if (response.ok) {
         const rawData = await response.json();
-        console.log('Raw Dashboard Data:', rawData); // Log raw data to see exact format
 
         if (!Array.isArray(rawData)) {
           console.error("API response is not an array:", rawData);
@@ -53,18 +54,15 @@ export function Dashboard() {
           return;
         }
 
-        const formattedData = rawData.map((item: any) => {
+        const formattedData = rawData.map((item: any) => ({
           // Handle "2026-02-02 23:00:00+00" format specifically if needed
           // But let's log the first one to be sure
-          return {
-            time: new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            timestamp: new Date(item.time).getTime(),
-            powerKw: Number(item.powerKw) || 0,
-            pricePerMwh: Number(item.pricePerMwh) || 0
-          };
-        });
+          time: new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: new Date(item.time).getTime(),
+          powerKw: Number(item.powerKw) || 0,
+          pricePerMwh: Number(item.pricePerMwh) || 0
+        }));
 
-        console.log('Formatted Data (First 5):', formattedData.slice(0, 5));
         setData(formattedData);
       }
     } catch (error) {
@@ -101,20 +99,33 @@ export function Dashboard() {
   return (
     <div className="dashboard-container" style={{ padding: '20px', color: '#eee' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-        <h2 style={{ margin: 0 }}>Energy Mix (Grafino)</h2>
+        <h2 style={{ margin: 0 }}>EMMA Analytics</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ background: '#222', borderRadius: '8px', padding: '4px', display: 'flex', gap: '4px' }}>
+            <button
+              onClick={() => setActiveTab('chart')}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'chart' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
+            >
+              Chart
+            </button>
+            <button
+              onClick={() => setActiveTab('arbitrage')}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'arbitrage' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
+            >
+              Arbitrage
+            </button>
+          </div>
           <select
             value={bucket}
             onChange={e => setBucket(e.target.value)}
             style={{ padding: '6px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white', height: '32px' }}
-            aria-label="Select Time Bucket"
           >
-            <option value="5 seconds">5 Seconds</option>
-            <option value="30 seconds">30 Seconds</option>
-            <option value="1 minute">1 Minute</option>
-            <option value="5 minutes">5 Minutes</option>
-            <option value="15 minutes">15 Minutes</option>
-            <option value="1 hour">1 Hour</option>
+            <option value="5 seconds">5s</option>
+            <option value="30 seconds">30s</option>
+            <option value="1 minute">1m</option>
+            <option value="5 minutes">5m</option>
+            <option value="15 minutes">15m</option>
+            <option value="1 hour">1h</option>
           </select>
           <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             Start:
@@ -140,38 +151,31 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div style={{ height: '500px', width: '100%', background: '#1e1e1e', borderRadius: '8px', padding: '10px' }}>
-        {loading && data.length === 0 ? (
-          <p style={{ color: 'white', textAlign: 'center', paddingTop: '200px' }}>Loading...</p>
-        ) : data.length === 0 ? (
-          <p style={{ color: '#aaa', textAlign: 'center', paddingTop: '200px' }}>No data available for the selected time range.</p>
+      <div style={{ minHeight: '550px', width: '100%', background: '#1e1e1e', borderRadius: '8px', padding: '20px' }}>
+        {activeTab === 'chart' ? (
+          <div style={{ height: '500px' }}>
+            {loading && data.length === 0 ? (
+              <p style={{ textAlign: 'center', paddingTop: '200px' }}>Loading...</p>
+            ) : data.length === 0 ? (
+              <p style={{ textAlign: 'center', paddingTop: '200px' }}>No data available.</p>
+            ) : (
+              <ResponsiveContainer>
+                <ComposedChart data={data}>
+                  <CartesianGrid stroke="#333" />
+                  <XAxis dataKey="timestamp" type="number" domain={['dataMin', 'dataMax']} tickFormatter={formatTick} stroke="#888" />
+                  <YAxis yAxisId="left" stroke="#8884d8" />
+                  <YAxis yAxisId="right" orientation="right" stroke="#ff7300" />
+                  <Tooltip labelFormatter={(label) => new Date(label).toLocaleString()} contentStyle={{ background: '#222', border: '1px solid #444' }} />
+                  <Legend />
+                  <Area yAxisId="left" type="monotone" dataKey="powerKw" fill="#8884d8" stroke="#8884d8" name="Power (kW)" fillOpacity={0.3} />
+                  <Line yAxisId="right" type="monotone" dataKey="pricePerMwh" stroke="#ff7300" name="Price (€)" dot={false} strokeWidth={2} />
+                  <Brush dataKey="timestamp" height={30} stroke="#8884d8" fill="#1e1e1e" tickFormatter={formatTick} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         ) : (
-          <ResponsiveContainer>
-            <ComposedChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#f5f5f5" strokeOpacity={0.1} />
-              <XAxis
-                dataKey="timestamp"
-                type="number"
-                domain={['dataMin', 'dataMax']}
-                tickFormatter={formatTick}
-                stroke="#ccc"
-                angle={-45}
-                textAnchor="end"
-                height={70}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis yAxisId="left" stroke="#8884d8" label={{ value: 'Power (kW)', angle: -90, position: 'insideLeft' }} />
-              <YAxis yAxisId="right" orientation="right" stroke="#ff7300" label={{ value: 'Price (€/MWh)', angle: 90, position: 'insideRight' }} />
-              <Tooltip
-                labelFormatter={(label) => new Date(label).toLocaleString()}
-                contentStyle={{ backgroundColor: '#333', border: 'none', color: '#fff' }}
-              />
-              <Legend verticalAlign="top" />
-              <Brush dataKey="timestamp" height={30} stroke="#8884d8" fill="#1e1e1e" tickFormatter={formatTick} />
-              <Area yAxisId="left" type="monotone" dataKey="powerKw" fill="#8884d8" stroke="#8884d8" name="Power Generation" fillOpacity={0.3} />
-              <Line yAxisId="right" type="monotone" dataKey="pricePerMwh" stroke="#ff7300" name="Market Price" dot={false} strokeWidth={2} />
-            </ComposedChart>
-          </ResponsiveContainer>
+          <CrossBorderArbitrage />
         )}
       </div>
     </div>

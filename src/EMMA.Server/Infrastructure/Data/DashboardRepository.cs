@@ -1,5 +1,6 @@
 using Dapper;
 using EMMA.Shared;
+using EMMA.Shared;
 using Npgsql;
 
 namespace EMMA.Server.Infrastructure.Data;
@@ -50,6 +51,12 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
             PricePerMwh = pricePerMwh,
             Status = status
         });
+    }
+
+    public async Task<dynamic?> GetCrossBorderArbitrageAsync(CancellationToken cts = default)
+    {
+        using var connection = await dataSource.OpenConnectionAsync(cts);
+        return await connection.QueryFirstOrDefaultAsync<dynamic>(Queries.GetCrossBorderArbitrage);
     }
 }
 

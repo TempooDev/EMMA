@@ -98,4 +98,29 @@ public static class Queries
         INSERT INTO flexibility_bids (market_zone, reduction_mw, price_per_mwh, status)
         VALUES (@MarketZone, @ReductionMw, @PricePerMwh, @Status);
     ";
+
+    public const string GetCrossBorderArbitrage = @"
+        WITH current_prices AS (
+            SELECT DISTINCT ON (source) source, price, time
+            FROM market_prices
+            WHERE source IN ('ENTSO-E-ES', 'ENTSO-E-FR')
+            AND time > NOW() - INTERVAL '2 hours'
+            ORDER BY source, time DESC
+        ),
+        current_flow AS (
+            SELECT physical_flow_mw, scheduled_flow_mw, ntc_mw, saturation_percentage, flow_direction, at_time
+            FROM interconnection_flows
+            WHERE at_time > NOW() - INTERVAL '1 hour'
+            ORDER BY at_time DESC
+            LIMIT 1
+        )
+        SELECT 
+            (SELECT price FROM current_prices WHERE source = 'ENTSO-E-ES') as PriceEs,
+            (SELECT price FROM current_prices WHERE source = 'ENTSO-E-FR') as PriceFr,
+            f.physical_flow_mw as PhysicalFlowMw,
+            f.ntc_mw as NtcMw,
+            f.saturation_percentage as SaturationPercentage,
+            f.flow_direction as FlowDirection
+        FROM current_flow f;
+    ";
 }
