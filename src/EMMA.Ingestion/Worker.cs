@@ -139,7 +139,7 @@ public class Worker : BackgroundService
     {
         using var logScope = _logger.BeginScope("Batch processing count={Count}", batch.Count);
 
-        var parsedMessages = new List<(Guid EventId, string TechnicalId, string TenantId, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
+        var parsedMessages = new List<(Guid EventId, string TechnicalId, string TenantId, string MarketZone, DateTimeOffset Timestamp, double? Latitude, double? Longitude, JsonElement Root)>(batch.Count);
 
         foreach (var item in batch)
         {
@@ -147,9 +147,9 @@ public class Worker : BackgroundService
             {
                 using var doc = JsonDocument.Parse(item.Message.Value);
                 var root = doc.RootElement.Clone();
-                if (TryExtractMetadata(root, out var eventId, out var technicalId, out var tenantId, out var timestamp, out var latitude, out var longitude))
+                if (TryExtractMetadata(root, out var eventId, out var technicalId, out var tenantId, out var marketZone, out var timestamp, out var latitude, out var longitude))
                 {
-                    parsedMessages.Add((eventId, technicalId, tenantId, timestamp, latitude, longitude, root));
+                    parsedMessages.Add((eventId, technicalId, tenantId, marketZone, timestamp, latitude, longitude, root));
                 }
             }
             catch (JsonException)
@@ -166,7 +166,7 @@ public class Worker : BackgroundService
             using var transaction = await connection.BeginTransactionAsync(token);
 
             // Privacy: Get or Create Anonymous IDs
-            var technicalTenantPairs = parsedMessages.Select(m => (m.TechnicalId, m.TenantId)).Distinct().ToList();
+            var technicalTenantPairs = parsedMessages.Select(m => (m.TechnicalId, m.TenantId, m.MarketZone)).Distinct().ToList();
             var mappings = await GetAssetMappingsAsync(connection, technicalTenantPairs, transaction, token);
 
             // Edge Security: Verify Tenant mismatch
@@ -203,6 +203,7 @@ public class Worker : BackgroundService
                         TechnicalId = g.Key,
                         AnonymousId = mappings[g.Key].AnonymousId,
                         TenantId = mappings[g.Key].TenantId,
+                        MarketZone = g.First().MarketZone,
                         Latitude = g.FirstOrDefault(x => x.Latitude.HasValue).Latitude,
                         Longitude = g.FirstOrDefault(x => x.Longitude.HasValue).Longitude
                     })
@@ -214,7 +215,8 @@ public class Worker : BackgroundService
                     ModelName = "Anonymized Asset",
                     d.Latitude,
                     d.Longitude,
-                    d.TenantId
+                    d.TenantId,
+                    d.MarketZone
                 });
 
                 await connection.ExecuteAsync(Queries.InsertDevice,
@@ -271,39 +273,40 @@ public class Worker : BackgroundService
         }
     }
 
-    private async Task<Dictionary<string, (Guid AnonymousId, string TenantId)>> GetAssetMappingsAsync(NpgsqlConnection conn, List<(string TechnicalId, string TenantId)> technicalTenantPairs, NpgsqlTransaction transaction, CancellationToken ct)
+    private async Task<Dictionary<string, (Guid AnonymousId, string TenantId, string MarketZone)>> GetAssetMappingsAsync(NpgsqlConnection conn, List<(string TechnicalId, string TenantId, string MarketZone)> technicalTenantPairs, NpgsqlTransaction transaction, CancellationToken ct)
     {
         var technicalIds = technicalTenantPairs.Select(x => x.TechnicalId).Distinct().ToList();
-        var existingResult = await conn.QueryAsync<(string TechnicalId, Guid AnonymousId, string TenantId)>(
-            "SELECT technical_id, anonymous_id, tenant_id FROM asset_mappings WHERE technical_id = ANY(@Ids)",
+        var existingResult = await conn.QueryAsync<(string TechnicalId, Guid AnonymousId, string TenantId, string MarketZone)>(
+            "SELECT technical_id, anonymous_id, tenant_id, market_zone FROM asset_mappings WHERE technical_id = ANY(@Ids)",
             new { Ids = technicalIds },
             transaction: transaction);
-
-        var existing = existingResult.ToDictionary(x => x.TechnicalId, x => (x.AnonymousId, x.TenantId));
-
+ 
+        var existing = existingResult.ToDictionary(x => x.TechnicalId, x => (x.AnonymousId, x.TenantId, x.MarketZone));
+ 
         foreach (var pair in technicalTenantPairs)
         {
             if (!existing.ContainsKey(pair.TechnicalId))
             {
                 var anonId = Guid.NewGuid();
                 await conn.ExecuteAsync(
-                    "INSERT INTO asset_mappings (technical_id, anonymous_id, tenant_id) VALUES (@Tech, @Anon, @Tenant) ON CONFLICT (technical_id) DO NOTHING",
-                    new { Tech = pair.TechnicalId, Anon = anonId, Tenant = pair.TenantId },
+                    "INSERT INTO asset_mappings (technical_id, anonymous_id, tenant_id, market_zone) VALUES (@Tech, @Anon, @Tenant, @Zone) ON CONFLICT (technical_id) DO NOTHING",
+                    new { Tech = pair.TechnicalId, Anon = anonId, Tenant = pair.TenantId, Zone = pair.MarketZone },
                     transaction: transaction);
-                existing[pair.TechnicalId] = (anonId, pair.TenantId);
+                existing[pair.TechnicalId] = (anonId, pair.TenantId, pair.MarketZone);
             }
         }
-
+ 
         return existing;
     }
 
     private static string MaskId(string id) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(id))).Substring(0, 8);
 
-    private static bool TryExtractMetadata(JsonElement root, out Guid eventId, out string technicalId, out string tenantId, out DateTimeOffset timestamp, out double? latitude, out double? longitude)
+    private static bool TryExtractMetadata(JsonElement root, out Guid eventId, out string technicalId, out string tenantId, out string marketZone, out DateTimeOffset timestamp, out double? latitude, out double? longitude)
     {
         eventId = Guid.Empty;
         technicalId = string.Empty;
         tenantId = "DEFAULT_TENANT";
+        marketZone = "Iberica-ES";
         timestamp = default;
         latitude = null;
         longitude = null;
@@ -323,6 +326,11 @@ public class Worker : BackgroundService
         if (header.TryGetProperty("tenant_id", out var tenantElem))
         {
             tenantId = tenantElem.GetString() ?? "DEFAULT_TENANT";
+        }
+ 
+        if (header.TryGetProperty("market_zone", out var zoneElem))
+        {
+            marketZone = zoneElem.GetString() ?? "Iberica-ES";
         }
 
         if (!root.TryGetProperty("timestamp", out var timestampElem) ||

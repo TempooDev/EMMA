@@ -55,13 +55,14 @@ public static class Queries
     ";
 
     public const string InsertDevice = @"
-        INSERT INTO public.devices (device_id, model_name, latitude, longitude, tenant_id)
-        VALUES (@DeviceId, @ModelName, @Latitude, @Longitude, @TenantId)
+        INSERT INTO public.devices (device_id, model_name, latitude, longitude, tenant_id, market_zone)
+        VALUES (@DeviceId, @ModelName, @Latitude, @Longitude, @TenantId, @MarketZone)
         ON CONFLICT (device_id) DO UPDATE 
         SET model_name = EXCLUDED.model_name,
             latitude = EXCLUDED.latitude,
             longitude = EXCLUDED.longitude,
-            tenant_id = EXCLUDED.tenant_id;
+            tenant_id = EXCLUDED.tenant_id,
+            market_zone = EXCLUDED.market_zone;
     ";
     
     public const string InsertInterconnectionFlow = @"
@@ -75,4 +76,26 @@ public static class Queries
     ";
 
     public const string SelectPendingEvents = "SELECT event_id FROM processed_messages WHERE event_id = ANY(@EventIds) FOR UPDATE SKIP LOCKED";
+
+    public const string GetVppCapacityByZone = @"
+        SELECT 
+            d.market_zone as MarketZone,
+            SUM(m.power_kw) as TotalPowerKw,
+            COUNT(d.device_id) as DeviceCount
+        FROM devices d
+        INNER JOIN LATERAL (
+            SELECT power_kw 
+            FROM asset_metrics 
+            WHERE asset_id = d.device_id 
+            AND time > NOW() - INTERVAL '5 minutes'
+            ORDER BY time DESC 
+            LIMIT 1
+        ) m ON true
+        GROUP BY d.market_zone;
+    ";
+
+    public const string InsertFlexibilityBid = @"
+        INSERT INTO flexibility_bids (market_zone, reduction_mw, price_per_mwh, status)
+        VALUES (@MarketZone, @ReductionMw, @PricePerMwh, @Status);
+    ";
 }

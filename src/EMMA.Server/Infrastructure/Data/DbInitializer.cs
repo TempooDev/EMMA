@@ -38,8 +38,12 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                 ["audit_logs"] = SchemaSql.AuditLogs,
                 ["interconnection_flows"] = SchemaSql.InterconnectionFlows,
                 ["optimization_schedules"] = SchemaSql.OptimizationSchedules,
-                ["api_keys"] = SchemaSql.ApiKeys
+                ["api_keys"] = SchemaSql.ApiKeys,
+                ["flexibility_bids"] = SchemaSql.FlexibilityBids
             };
+
+            // Fix existing table to add market_zone
+            await connection.ExecuteAsync("ALTER TABLE devices ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES'");
 
             foreach (var kvp in scripts)
             {

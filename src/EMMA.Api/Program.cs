@@ -8,6 +8,7 @@ using EMMA.Api.Features.Market.Data;
 using EMMA.Api.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using System.Text;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -24,20 +25,20 @@ builder.Services.AddOpenApi(options =>
         document.Info.Description = "Real-time energy market results and asset control for third-party developers.";
         document.Info.Version = "v1.0";
         
-        document.Components ??= new Microsoft.OpenApi.Models.OpenApiComponents(); // Wait, let's try without .Models
-        document.Components.SecuritySchemes.Add("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes.Add("Bearer", new OpenApiSecurityScheme
         {
-            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            In = ParameterLocation.Header,
             Description = "JWT Authorization header using the Bearer scheme."
         });
-        document.Components.SecuritySchemes.Add("ApiKey", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        document.Components.SecuritySchemes.Add("ApiKey", new OpenApiSecurityScheme
         {
-            Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+            Type = SecuritySchemeType.ApiKey,
             Name = "X-API-KEY",
-            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+            In = ParameterLocation.Header,
             Description = "API Key authentication using the X-API-KEY header."
         });
 

@@ -10,7 +10,8 @@ public static class SchemaSql
             firmware_version VARCHAR(50),
             latitude DOUBLE PRECISION,
             longitude DOUBLE PRECISION,
-            tenant_id VARCHAR(50)
+            tenant_id VARCHAR(50),
+            market_zone VARCHAR(50) DEFAULT 'Iberica-ES'
         );";
 
     public const string RawDataSchema = "CREATE SCHEMA IF NOT EXISTS raw_data;";
@@ -187,4 +188,15 @@ public static class SchemaSql
             is_active BOOLEAN NOT NULL DEFAULT TRUE
         );
         CREATE INDEX IF NOT EXISTS api_keys_key_idx ON api_keys (key);";
+
+    public const string FlexibilityBids = @"
+        CREATE TABLE IF NOT EXISTS flexibility_bids (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            at_time TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            market_zone VARCHAR(50) NOT NULL,
+            reduction_mw DOUBLE PRECISION NOT NULL,
+            price_per_mwh DOUBLE PRECISION,
+            status TEXT DEFAULT 'SUBMITTED'
+        );
+        CREATE INDEX IF NOT EXISTS flexibility_bids_time_idx ON flexibility_bids (at_time DESC);";
 }

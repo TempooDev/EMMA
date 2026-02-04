@@ -10,7 +10,7 @@ public static class DashboardEndpoints
         var group = app.MapGroup("/api/dashboard");
 
         group.MapGet("/energy-mix", async (
-            [FromServices] DashboardRepository repository, 
+            [FromServices] DashboardRepository repository,
             [FromQuery] DateTimeOffset? start,
             [FromQuery] DateTimeOffset? end,
             [FromQuery] string? bucket,
@@ -26,7 +26,7 @@ public static class DashboardEndpoints
         .WithName("GetEnergyMix")
         .WithOpenApi();
         group.MapGet("/devices-status", async (
-            [FromServices] DashboardRepository repository, 
+            [FromServices] DashboardRepository repository,
             CancellationToken ct = default) =>
         {
             var data = await repository.GetDeviceStatusAsync(ct);
@@ -34,5 +34,28 @@ public static class DashboardEndpoints
         })
         .WithName("GetDeviceStatus")
         .WithOpenApi();
+
+        group.MapGet("/vpp/capacity", async (
+            [FromServices] DashboardRepository repository,
+            CancellationToken ct = default) =>
+        {
+            var data = await repository.GetVppCapacityByZoneAsync(ct);
+            return Results.Ok(data);
+        })
+        .WithName("GetVppCapacity")
+        .WithOpenApi();
+
+        group.MapPost("/vpp/bid", async (
+            [FromServices] DashboardRepository repository,
+            [FromBody] FlexibilityBidRequest request,
+            CancellationToken ct = default) =>
+        {
+            await repository.InsertFlexibilityBidAsync(request.MarketZone, request.ReductionMw, request.PricePerMwh, cts: ct);
+            return Results.Accepted();
+        })
+        .WithName("SubmitFlexibilityBid")
+        .WithOpenApi();
     }
 }
+
+public record FlexibilityBidRequest(string MarketZone, double ReductionMw, double? PricePerMwh);

@@ -25,13 +25,31 @@ public class DashboardRepository(NpgsqlDataSource dataSource)
 
         return await connection.QueryAsync<EnergyMixDto>(Queries.GetEnergyMix, new { Start = start, End = end, Bucket = bucket });
     }
-    public async Task<IEnumerable<DeviceStatusDto>> GetDeviceStatusAsync(CancellationToken ct)
+    public async Task<IEnumerable<dynamic>> GetDeviceStatusAsync(CancellationToken ct)
     {
         using var connection = await dataSource.OpenConnectionAsync(ct);
 
         // Fetch devices and their LATEST metric (using DISTINCT ON for efficiency in Postgres)
         // Note: DISTINCT ON (asset_id) ORDER BY asset_id, time DESC gives the last row per asset.
-        return await connection.QueryAsync<DeviceStatusDto>(Queries.GetDeviceStatus);
+        return await connection.QueryAsync<dynamic>(Queries.GetDeviceStatus);
+    }
+
+    public async Task<IEnumerable<dynamic>> GetVppCapacityByZoneAsync(CancellationToken cts = default)
+    {
+        using var connection = await dataSource.OpenConnectionAsync(cts);
+        return await connection.QueryAsync<dynamic>(Queries.GetVppCapacityByZone);
+    }
+
+    public async Task InsertFlexibilityBidAsync(string marketZone, double reductionMw, double? pricePerMwh, string status = "SUBMITTED", CancellationToken cts = default)
+    {
+        using var connection = await dataSource.OpenConnectionAsync(cts);
+        await connection.ExecuteAsync(Queries.InsertFlexibilityBid, new
+        {
+            MarketZone = marketZone,
+            ReductionMw = reductionMw,
+            PricePerMwh = pricePerMwh,
+            Status = status
+        });
     }
 }
 
