@@ -14,6 +14,7 @@ import {
 import CrossBorderArbitrage from '../components/vpp/CrossBorderArbitrage';
 import ImpactCounter from '../components/vpp/ImpactCounter';
 import ArbitrageCorrelationChart from '../components/vpp/ArbitrageCorrelationChart';
+import AssetMap from '../components/vpp/AssetMap';
 
 interface EnergyData {
   time: string;
@@ -29,7 +30,7 @@ interface DashboardProps {
 export function Dashboard({ token }: DashboardProps) {
   const [data, setData] = useState<EnergyData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage' | 'correlation'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage' | 'correlation' | 'map'>('chart');
 
   // Default to today (start of day to end of day)
   const [startDate, setStartDate] = useState(() => {
@@ -129,6 +130,12 @@ export function Dashboard({ token }: DashboardProps) {
             >
               Correlation
             </button>
+            <button
+              onClick={() => setActiveTab('map')}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'map' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
+            >
+              Fleet Map
+            </button>
           </div>
           <select
             value={bucket}
@@ -193,8 +200,10 @@ export function Dashboard({ token }: DashboardProps) {
           </div>
         ) : activeTab === 'arbitrage' ? (
           <CrossBorderArbitrage token={token} />
-        ) : (
+        ) : activeTab === 'correlation' ? (
           <ArbitrageCorrelationChart data={data} formatTick={formatTick} />
+        ) : (
+          <AssetMap token={token} />
         )}
       </div>
     </div>

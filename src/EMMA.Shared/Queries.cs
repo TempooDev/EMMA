@@ -27,15 +27,25 @@ public static class Queries
     ";
 
     public const string GetDeviceStatus = @"
+        WITH current_price AS (
+            SELECT price 
+            FROM market_prices 
+            WHERE source = 'REData' 
+            ORDER BY time DESC 
+            LIMIT 1
+        )
         SELECT 
             d.device_id as DeviceId,
+            d.model_name as ModelName,
             d.latitude as Latitude,
             d.longitude as Longitude,
             m.power_kw as CurrentPowerKw,
-            m.time as LastUpdated
+            m.temperature as Temperature,
+            m.time as LastUpdated,
+            (m.power_kw > 0 AND (SELECT price FROM current_price) <= 0) as IsChargingNegativePrice
         FROM devices d
         LEFT JOIN LATERAL (
-            SELECT power_kw, time 
+            SELECT power_kw, temperature, time 
             FROM asset_metrics 
             WHERE asset_id = d.device_id 
             ORDER BY time DESC 

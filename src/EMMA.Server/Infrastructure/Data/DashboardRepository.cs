@@ -83,10 +83,13 @@ public class ImpactMetricsDto
 public class DeviceStatusDto
 {
     public string DeviceId { get; set; } = string.Empty;
+    public string? ModelName { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public double? CurrentPowerKw { get; set; }
+    public double? Temperature { get; set; }
     public DateTimeOffset? LastUpdated { get; set; }
+    public bool IsChargingNegativePrice { get; set; }
 }
 
 public class EnergyMixDto
