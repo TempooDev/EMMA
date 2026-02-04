@@ -14,6 +14,7 @@ import {
 import CrossBorderArbitrage from '../components/vpp/CrossBorderArbitrage';
 import ImpactCounter from '../components/vpp/ImpactCounter';
 import ArbitrageCorrelationChart from '../components/vpp/ArbitrageCorrelationChart';
+import PredictiveTimeline from '../components/vpp/PredictiveTimeline';
 import AssetMap from '../components/vpp/AssetMap';
 
 interface EnergyData {
@@ -30,7 +31,7 @@ interface DashboardProps {
 export function Dashboard({ token }: DashboardProps) {
   const [data, setData] = useState<EnergyData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage' | 'correlation' | 'map'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage' | 'correlation' | 'strategy'>('chart');
 
   // Default to today (start of day to end of day)
   const [startDate, setStartDate] = useState(() => {
@@ -125,16 +126,10 @@ export function Dashboard({ token }: DashboardProps) {
               Arbitrage
             </button>
             <button
-              onClick={() => setActiveTab('correlation')}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'correlation' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
+              onClick={() => setActiveTab('strategy')}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'strategy' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
             >
-              Correlation
-            </button>
-            <button
-              onClick={() => setActiveTab('map')}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'map' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
-            >
-              Fleet Map
+              Strategy
             </button>
           </div>
           <select
@@ -203,8 +198,15 @@ export function Dashboard({ token }: DashboardProps) {
         ) : activeTab === 'correlation' ? (
           <ArbitrageCorrelationChart data={data} formatTick={formatTick} />
         ) : (
-          <AssetMap token={token} />
+          <PredictiveTimeline token={token} />
         )}
+      </div>
+
+      <div style={{ marginTop: '20px' }}>
+        <h3 style={{ color: 'white', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span>🌍</span> Fleet Real-time Distribution
+        </h3>
+        <AssetMap token={token} />
       </div>
     </div>
   );

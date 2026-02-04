@@ -166,4 +166,15 @@ public static class Queries
             COALESCE((SELECT negative_price_kwh FROM today_metrics), 0) as NegativePriceEnergyKwh,
             COALESCE((SELECT price FROM current_price), 0) as CurrentPriceEurMwh;
     ";
+
+    public const string GetPriceForecast = @"
+        SELECT 
+            time as Time,
+            price as PricePerMwh
+        FROM market_prices
+        WHERE source = 'REData'
+        AND time >= NOW()
+        AND time <= NOW() + INTERVAL '24 hours'
+        ORDER BY time ASC;
+    ";
 }

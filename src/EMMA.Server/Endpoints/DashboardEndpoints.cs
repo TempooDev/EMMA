@@ -75,6 +75,16 @@ public static class DashboardEndpoints
         })
         .WithName("GetImpactMetrics")
         .WithOpenApi();
+
+        group.MapGet("/price-forecast", async (
+            [FromServices] DashboardRepository repository,
+            CancellationToken ct = default) =>
+        {
+            var data = await repository.GetPriceForecastAsync(ct);
+            return Results.Ok(data);
+        })
+        .WithName("GetPriceForecast")
+        .WithOpenApi();
     }
 }
 

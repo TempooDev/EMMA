@@ -61,6 +61,18 @@ public class DashboardRepository(NpgsqlDataSource dataSource, ITenantProvider te
         using var connection = await dataSource.OpenConnectionAsync(cts);
         return await connection.QueryFirstOrDefaultAsync<ImpactMetricsDto>(Queries.GetImpactMetrics, new { TenantId = tenantId });
     }
+
+    public async Task<IEnumerable<PriceForecastDto>> GetPriceForecastAsync(CancellationToken cts = default)
+    {
+        using var connection = await dataSource.OpenConnectionAsync(cts);
+        return await connection.QueryAsync<PriceForecastDto>(Queries.GetPriceForecast);
+    }
+}
+
+public class PriceForecastDto
+{
+    public DateTimeOffset Time { get; set; }
+    public double PricePerMwh { get; set; }
 }
 
 public class ArbitrageDto
