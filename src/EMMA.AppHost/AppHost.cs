@@ -32,7 +32,6 @@ var server = builder.AddProject<Projects.EMMA_Server>("server")
 var marketService = builder.AddProject<Projects.EMMA_MarketService>("market-service")
     .WithReference(kafka)
     .WithReference(emma_db)
-    .WithEnvironment("Entsoe__ApiKey", entsoeApiKey)
     .WaitFor(kafka)
     .WaitFor(server);
 
