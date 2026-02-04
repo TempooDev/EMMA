@@ -19,8 +19,7 @@ function App() {
   // Weather State
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [useCelsius, setUseCelsius] = useState(false)
+  const [useCelsius] = useState(false)
 
   const handleLogin = (newToken: string) => {
     setToken(newToken);
@@ -35,7 +34,6 @@ function App() {
   const fetchWeatherForecast = async () => {
     if (!token) return;
     setLoading(true)
-    setError(null)
 
     try {
       const response = await fetch('/api/weatherforecast')
@@ -47,7 +45,6 @@ function App() {
       const data: WeatherForecast[] = await response.json()
       setWeatherData(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch weather data')
       console.error('Error fetching weather forecast:', err)
     } finally {
       setLoading(false)
