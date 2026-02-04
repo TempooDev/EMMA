@@ -7,7 +7,9 @@ interface InterconnectionCableProps {
 }
 
 const InterconnectionCable: React.FC<InterconnectionCableProps> = ({ flowMw, saturation, direction }) => {
-    const isSaturated = saturation > 90;
+    const safeSaturation = saturation ?? 0;
+    const safeFlow = flowMw ?? 0;
+    const isSaturated = safeSaturation > 90;
 
     return (
         <div style={{
@@ -24,7 +26,7 @@ const InterconnectionCable: React.FC<InterconnectionCableProps> = ({ flowMw, sat
                 color: isSaturated ? '#ff4b2b' : '#aaa',
                 textTransform: 'uppercase'
             }}>
-                {direction} | {flowMw.toFixed(0)} MW
+                {direction || 'N/A'} | {safeFlow.toFixed(0)} MW
             </div>
 
             <div style={{
@@ -56,7 +58,7 @@ const InterconnectionCable: React.FC<InterconnectionCableProps> = ({ flowMw, sat
                     animation: 'pulse 1s infinite',
                     marginTop: '0.5rem'
                 }}>
-                    ⚠️ INTERCONEXIÓN AL LÍMITE ({saturation.toFixed(1)}%)
+                    ⚠️ INTERCONEXIÓN AL LÍMITE ({safeSaturation.toFixed(1)}%)
                 </div>
             )}
 

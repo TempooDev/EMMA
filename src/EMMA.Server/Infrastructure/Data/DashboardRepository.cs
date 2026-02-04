@@ -21,14 +21,14 @@ public class DashboardRepository(NpgsqlDataSource dataSource, ITenantProvider te
 
         return await connection.QueryAsync<EnergyMixDto>(Queries.GetEnergyMix, new { Start = start, End = end, Bucket = bucket, TenantId = tenantId });
     }
-    public async Task<IEnumerable<dynamic>> GetDeviceStatusAsync(CancellationToken ct)
+    public async Task<IEnumerable<DeviceStatusDto>> GetDeviceStatusAsync(CancellationToken ct)
     {
         var tenantId = tenantProvider.TenantId;
         using var connection = await dataSource.OpenConnectionAsync(ct);
 
         // Fetch devices and their LATEST metric (using DISTINCT ON for efficiency in Postgres)
         // Note: DISTINCT ON (asset_id) ORDER BY asset_id, time DESC gives the last row per asset.
-        return await connection.QueryAsync<dynamic>(Queries.GetDeviceStatus, new { TenantId = tenantId });
+        return await connection.QueryAsync<DeviceStatusDto>(Queries.GetDeviceStatus, new { TenantId = tenantId });
     }
 
     public async Task<IEnumerable<dynamic>> GetVppCapacityByZoneAsync(CancellationToken cts = default)
@@ -49,11 +49,21 @@ public class DashboardRepository(NpgsqlDataSource dataSource, ITenantProvider te
         });
     }
 
-    public async Task<dynamic?> GetCrossBorderArbitrageAsync(CancellationToken cts = default)
+    public async Task<ArbitrageDto?> GetCrossBorderArbitrageAsync(CancellationToken cts = default)
     {
         using var connection = await dataSource.OpenConnectionAsync(cts);
-        return await connection.QueryFirstOrDefaultAsync<dynamic>(Queries.GetCrossBorderArbitrage);
+        return await connection.QueryFirstOrDefaultAsync<ArbitrageDto>(Queries.GetCrossBorderArbitrage);
     }
+}
+
+public class ArbitrageDto
+{
+    public double? PriceEs { get; set; }
+    public double? PriceFr { get; set; }
+    public double? PhysicalFlowMw { get; set; }
+    public double? NtcMw { get; set; }
+    public double? SaturationPercentage { get; set; }
+    public string? FlowDirection { get; set; }
 }
 
 public class DeviceStatusDto
