@@ -15,7 +15,11 @@ In a market where prices can range from €130/MWh in France to negative values 
 Designed with a focus on **decoupled microservices** and high availability:
 
 - **Ingestion & Strategy Engine:** Distributed microservices in .NET and Python processing messages via **MQTT/Kafka**.
-- **Data Core:** Hybrid architecture with **PostgreSQL** for business logic and **TimescaleDB** for massive time series storage with native compression.
+- **Data Core:** Multi-database architecture with three specialized PostgreSQL instances:
+  - **IdentityDB**: Authentication, API keys, and audit logs
+  - **AppDB**: Business logic, devices, assets, and communities
+  - **TelemetryDB**: TimescaleDB for massive time-series storage with native compression
+  - See [Database Architecture](doc/database_architecture.md) for details
 
 - **Market Intelligence:** Integration with the **REData** API for monitoring intraday prices and European interconnection congestion.
 - **Frontend Observability:** Real-time visualization and asset monitoring using **React**, **Recharts**, and **Leaflet** for interactive geographic distribution.
