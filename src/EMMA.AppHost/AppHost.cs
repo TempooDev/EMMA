@@ -70,6 +70,7 @@ var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-s
 var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
     .WithReference(appDb)
     .WithReference(telemetryDb)
+    .WithReference(identityDb)
     .WithReference(kafka) // if needed later
     .WithEnvironment("Jwt__Key", jwtKey)
     .WithEnvironment("Jwt__Issuer", "emma-identity")

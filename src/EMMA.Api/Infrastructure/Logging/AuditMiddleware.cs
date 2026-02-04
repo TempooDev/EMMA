@@ -1,20 +1,20 @@
+using System.Security.Claims;
 using System.Text.Json;
+using Dapper;
 using EMMA.Api.Infrastructure.Identity;
 using Npgsql;
-using System.Security.Claims;
-using Dapper;
 
 namespace EMMA.Api.Infrastructure.Logging;
 
-public class AuditMiddleware(RequestDelegate next, NpgsqlDataSource dataSource)
+public class AuditMiddleware(RequestDelegate next, [FromKeyedServices("identity-db")] NpgsqlDataSource dataSource)
 {
     public async Task InvokeAsync(HttpContext context, ITenantProvider tenantProvider)
     {
         var request = context.Request;
-        
+
         // We only audit write/control operations by default, or specific sensitive paths
-        var isWriteAction = request.Method == HttpMethods.Post || 
-                            request.Method == HttpMethods.Put || 
+        var isWriteAction = request.Method == HttpMethods.Post ||
+                            request.Method == HttpMethods.Put ||
                             request.Method == HttpMethods.Delete;
 
         if (!isWriteAction && !request.Path.StartsWithSegments("/connect/token"))
@@ -39,8 +39,8 @@ public class AuditMiddleware(RequestDelegate next, NpgsqlDataSource dataSource)
         // After request: Log the outcome
         try
         {
-            var userId = context.User?.FindFirstValue(ClaimTypes.NameIdentifier) 
-                         ?? context.User?.FindFirstValue("sub") 
+            var userId = context.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+                         ?? context.User?.FindFirstValue("sub")
                          ?? "anonymous";
             var tenantId = tenantProvider.TenantId ?? "N/A";
 

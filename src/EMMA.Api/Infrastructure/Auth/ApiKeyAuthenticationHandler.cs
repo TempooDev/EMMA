@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Dapper;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using Dapper;
 
 namespace EMMA.Api.Infrastructure.Auth;
 
@@ -18,7 +18,7 @@ public class ApiKeyAuthenticationHandler(
     IOptionsMonitor<ApiKeyAuthenticationOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    NpgsqlDataSource dataSource)
+    [FromKeyedServices("identity-db")] NpgsqlDataSource dataSource)
     : AuthenticationHandler<ApiKeyAuthenticationOptions>(options, logger, encoder)
 {
     private const string ApiKeyHeaderName = "X-API-KEY";

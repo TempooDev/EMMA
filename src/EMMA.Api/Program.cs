@@ -61,6 +61,13 @@ builder.Services.AddKeyedSingleton<NpgsqlDataSource>("telemetry-db", (sp, key) =
     return NpgsqlDataSource.Create(connectionString);
 });
 
+builder.Services.AddKeyedSingleton<NpgsqlDataSource>("identity-db", (sp, key) =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("identity-db")
+        ?? throw new InvalidOperationException("Connection string 'identity-db' is missing.");
+    return NpgsqlDataSource.Create(connectionString);
+});
+
 // Repositories
 builder.Services.AddScoped<IAssetRepository, AssetRepository>();
 builder.Services.AddScoped<IMarketRepository, MarketRepository>();
