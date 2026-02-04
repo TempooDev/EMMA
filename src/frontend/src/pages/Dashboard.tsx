@@ -13,9 +13,11 @@ import {
 } from 'recharts';
 import CrossBorderArbitrage from '../components/vpp/CrossBorderArbitrage';
 import ImpactCounter from '../components/vpp/ImpactCounter';
+import ArbitrageCorrelationChart from '../components/vpp/ArbitrageCorrelationChart';
 
 interface EnergyData {
   time: string;
+  timestamp: number;
   powerKw: number;
   pricePerMwh: number;
 }
@@ -27,7 +29,7 @@ interface DashboardProps {
 export function Dashboard({ token }: DashboardProps) {
   const [data, setData] = useState<EnergyData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage' | 'correlation'>('chart');
 
   // Default to today (start of day to end of day)
   const [startDate, setStartDate] = useState(() => {
@@ -64,8 +66,6 @@ export function Dashboard({ token }: DashboardProps) {
         }
 
         const formattedData = rawData.map((item: any) => ({
-          // Handle "2026-02-02 23:00:00+00" format specifically if needed
-          // But let's log the first one to be sure
           time: new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           timestamp: new Date(item.time).getTime(),
           powerKw: Number(item.powerKw) || 0,
@@ -122,6 +122,12 @@ export function Dashboard({ token }: DashboardProps) {
               style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'arbitrage' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
             >
               Arbitrage
+            </button>
+            <button
+              onClick={() => setActiveTab('correlation')}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: activeTab === 'correlation' ? '#0078d4' : 'transparent', color: 'white', cursor: 'pointer' }}
+            >
+              Correlation
             </button>
           </div>
           <select
@@ -185,8 +191,10 @@ export function Dashboard({ token }: DashboardProps) {
               </ResponsiveContainer>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'arbitrage' ? (
           <CrossBorderArbitrage token={token} />
+        ) : (
+          <ArbitrageCorrelationChart data={data} formatTick={formatTick} />
         )}
       </div>
     </div>
