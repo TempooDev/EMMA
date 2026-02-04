@@ -10,7 +10,6 @@ var kafka = builder.AddKafka("messaging")
     .WithKafkaUI();
 
 var jwtKey = builder.AddParameter("jwt-key", secret: true);
-var entsoeApiKey = builder.AddParameter("entsoe-api-key", secret: true);
 
 var mqttBridge = builder.AddDockerfile("mqtt-bridge", "../simple-mqtt-kafka-bridge")
                         .WithReference(kafka)
@@ -42,8 +41,14 @@ var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
     .WaitFor(kafka)
     .WaitFor(server);
 
+var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
+    .WithReference(emma_db)
+    .WithEnvironment("Jwt__Key", jwtKey)
+    .WaitFor(emma_db);
+
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
+    .WithReference(identity)
     .WaitFor(server);
 
 var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-service")
@@ -53,11 +58,6 @@ var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-s
 var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
     .WithReference(emma_db)
     .WithReference(kafka) // if needed later
-    .WithEnvironment("Jwt__Key", jwtKey)
-    .WaitFor(emma_db);
-
-var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
-    .WithReference(emma_db)
     .WithEnvironment("Jwt__Key", jwtKey)
     .WaitFor(emma_db);
 
