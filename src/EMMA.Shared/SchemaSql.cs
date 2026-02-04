@@ -19,7 +19,7 @@ public static class SchemaSql
     public const string TelemetryRaw = @"
         CREATE TABLE IF NOT EXISTS raw_data.telemetry_raw (
             time TIMESTAMP WITH TIME ZONE NOT NULL,
-            device_id VARCHAR(50) REFERENCES public.devices(device_id) ON DELETE CASCADE,
+            device_id VARCHAR(50),
             data_type VARCHAR(50) NOT NULL,
             value DOUBLE PRECISION NOT NULL,
             unit VARCHAR(10) NOT NULL
@@ -53,7 +53,7 @@ public static class SchemaSql
             type TEXT NOT NULL,
             description TEXT,
             community_id INT REFERENCES energy_communities(id),
-            user_id INT REFERENCES users(id),
+            user_id INT,
             created_at TIMESTAMPTZ DEFAULT NOW(),
             updated_at TIMESTAMPTZ DEFAULT NOW()
         );";
