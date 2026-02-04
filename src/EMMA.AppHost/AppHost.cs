@@ -54,6 +54,8 @@ var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
     .WithReference(identity)
+    .WithEnvironment("SERVER_HTTP", server.GetEndpoint("http"))
+    .WithEnvironment("IDENTITY_HTTP", identity.GetEndpoint("http"))
     .WaitFor(server);
 
 var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-service")
