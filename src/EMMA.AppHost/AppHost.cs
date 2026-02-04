@@ -43,8 +43,10 @@ var marketService = builder.AddProject<Projects.EMMA_MarketService>("market-serv
     .WaitFor(server);
 
 var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
+    .WithReference(appDb)
     .WithReference(telemetryDb)
     .WithReference(kafka)
+    .WaitFor(appDb)
     .WaitFor(telemetryDb)
     .WaitFor(kafka)
     .WaitFor(server);

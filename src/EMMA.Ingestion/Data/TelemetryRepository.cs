@@ -14,7 +14,9 @@ public class TelemetryRepository : ITelemetryRepository
     private readonly ILogger<TelemetryRepository> _logger;
     private readonly AsyncRetryPolicy _retryPolicy;
 
-    public TelemetryRepository(NpgsqlDataSource dataSource, ILogger<TelemetryRepository> logger)
+    public TelemetryRepository(
+        [FromKeyedServices("telemetry-db")] NpgsqlDataSource dataSource,
+        ILogger<TelemetryRepository> logger)
     {
         _dataSource = dataSource;
         _logger = logger;

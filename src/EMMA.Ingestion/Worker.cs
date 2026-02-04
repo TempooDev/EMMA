@@ -24,7 +24,11 @@ public class Worker : BackgroundService
     private const int ChannelCapacity = 1000;
     private static readonly TimeSpan BatchTimeout = TimeSpan.FromSeconds(5);
 
-    public Worker(ILogger<Worker> logger, IConsumer<string, string> consumer, NpgsqlDataSource dataSource, ITelemetryRepository repository)
+    public Worker(
+        ILogger<Worker> logger,
+        IConsumer<string, string> consumer,
+        [FromKeyedServices("app-db")] NpgsqlDataSource dataSource,
+        ITelemetryRepository repository)
     {
         _logger = logger;
         _consumer = consumer;
@@ -280,9 +284,9 @@ public class Worker : BackgroundService
             "SELECT technical_id, anonymous_id, tenant_id, market_zone FROM asset_mappings WHERE technical_id = ANY(@Ids)",
             new { Ids = technicalIds },
             transaction: transaction);
- 
+
         var existing = existingResult.ToDictionary(x => x.TechnicalId, x => (x.AnonymousId, x.TenantId, x.MarketZone));
- 
+
         foreach (var pair in technicalTenantPairs)
         {
             if (!existing.ContainsKey(pair.TechnicalId))
@@ -295,7 +299,7 @@ public class Worker : BackgroundService
                 existing[pair.TechnicalId] = (anonId, pair.TenantId, pair.MarketZone);
             }
         }
- 
+
         return existing;
     }
 
@@ -327,7 +331,7 @@ public class Worker : BackgroundService
         {
             tenantId = tenantElem.GetString() ?? "DEFAULT_TENANT";
         }
- 
+
         if (header.TryGetProperty("market_zone", out var zoneElem))
         {
             marketZone = zoneElem.GetString() ?? "Iberica-ES";
