@@ -42,9 +42,6 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                 ["flexibility_bids"] = SchemaSql.FlexibilityBids
             };
 
-            // Fix existing table to add market_zone
-            await connection.ExecuteAsync("ALTER TABLE devices ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES'");
-
             foreach (var kvp in scripts)
             {
                 try
@@ -58,6 +55,9 @@ public class DbInitializer(NpgsqlDataSource dataSource, ILogger<DbInitializer> l
                     // Continue with other sections even if one fails
                 }
             }
+
+            // Fix existing table to add market_zone (for legacy databases)
+            await connection.ExecuteAsync("ALTER TABLE devices ADD COLUMN IF NOT EXISTS market_zone VARCHAR(50) DEFAULT 'Iberica-ES'");
 
             // Compression Policy for asset_metrics (separately to ignore errors safely)
             try

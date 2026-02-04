@@ -36,7 +36,11 @@ function App() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/weatherforecast')
+      const response = await fetch('/api/weatherforecast', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -98,9 +102,9 @@ function App() {
 
       <main className="main-content">
         {activeTab === 'dashboard' ? (
-          <Dashboard />
+          <Dashboard token={token!} />
         ) : activeTab === 'map' ? (
-          <MapDashboard />
+          <MapDashboard token={token!} />
         ) : (
           <section className="weather-section" aria-labelledby="weather-heading">
             {/* Weather Content */}

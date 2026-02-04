@@ -27,14 +27,22 @@ interface DeviceStatus {
     lastUpdated: string;
 }
 
-export function MapDashboard() {
+interface MapDashboardProps {
+    token: string;
+}
+
+export function MapDashboard({ token }: MapDashboardProps) {
     const [devices, setDevices] = useState<DeviceStatus[]>([]);
     const [loading, setLoading] = useState(false);
 
     const fetchDevices = async () => {
         setLoading(true);
         try {
-            const response = await fetch('/api/dashboard/devices-status');
+            const response = await fetch('/api/dashboard/devices-status', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             if (response.ok) {
                 const data = await response.json();
                 console.log('Device Status:', data);
@@ -54,39 +62,39 @@ export function MapDashboard() {
     }, []);
 
     // Default center (Madrid)
-    const center: [number, number] = [40.4168, -3.7038]; 
+    const center: [number, number] = [40.4168, -3.7038];
 
     return (
         <div className="map-container" style={{ height: 'calc(100vh - 100px)', width: '100%', position: 'relative' }}>
-            {loading && <div style={{position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', borderRadius: '4px'}}>Refreshing...</div>}
-            
-             <MapContainer center={center} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+            {loading && <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '5px 10px', borderRadius: '4px' }}>Refreshing...</div>}
+
+            <MapContainer center={center} zoom={6} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 {devices.map(device => (
                     device.latitude && device.longitude ? (
-                    <Marker 
-                        key={device.deviceId} 
-                        position={[device.latitude, device.longitude]}
-                        icon={createCustomIcon((device.currentPowerKw || 0) > 0)}
-                    >
-                        <Popup>
-                            <strong>{device.deviceId}</strong><br />
-                            Power: {device.currentPowerKw?.toFixed(2) ?? 0} kW<br />
-                            Updated: {new Date(device.lastUpdated).toLocaleTimeString()}
-                        </Popup>
-                    </Marker>
+                        <Marker
+                            key={device.deviceId}
+                            position={[device.latitude, device.longitude]}
+                            icon={createCustomIcon((device.currentPowerKw || 0) > 0)}
+                        >
+                            <Popup>
+                                <strong>{device.deviceId}</strong><br />
+                                Power: {device.currentPowerKw?.toFixed(2) ?? 0} kW<br />
+                                Updated: {new Date(device.lastUpdated).toLocaleTimeString()}
+                            </Popup>
+                        </Marker>
                     ) : null
                 ))}
             </MapContainer>
-            
-             <button onClick={fetchDevices} style={{
-                 position: 'absolute', bottom: 20, left: 20, zIndex: 1000,
-                 padding: '10px 20px', cursor: 'pointer', background: '#0078d4', color: 'white', border: 'none', borderRadius: '4px',
-                 boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
-             }}>
+
+            <button onClick={fetchDevices} style={{
+                position: 'absolute', bottom: 20, left: 20, zIndex: 1000,
+                padding: '10px 20px', cursor: 'pointer', background: '#0078d4', color: 'white', border: 'none', borderRadius: '4px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+            }}>
                 Refresh Map
             </button>
         </div>

@@ -19,7 +19,11 @@ interface EnergyData {
   pricePerMwh: number;
 }
 
-export function Dashboard() {
+interface DashboardProps {
+  token: string;
+}
+
+export function Dashboard({ token }: DashboardProps) {
   const [data, setData] = useState<EnergyData[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'chart' | 'arbitrage'>('chart');
@@ -43,7 +47,11 @@ export function Dashboard() {
       const startIso = new Date(startDate).toISOString();
       const endIso = new Date(endDate).toISOString();
 
-      const response = await fetch(`/api/dashboard/energy-mix?start=${startIso}&end=${endIso}&bucket=${bucket}`);
+      const response = await fetch(`/api/dashboard/energy-mix?start=${startIso}&end=${endIso}&bucket=${bucket}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
 
       if (response.ok) {
         const rawData = await response.json();

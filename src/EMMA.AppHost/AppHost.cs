@@ -26,6 +26,9 @@ var server = builder.AddProject<Projects.EMMA_Server>("server")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
     .WithReference(emma_db)
+    .WithEnvironment("Jwt__Key", jwtKey)
+    .WithEnvironment("Jwt__Issuer", "emma-identity")
+    .WithEnvironment("Jwt__Audience", "emma-api")
     .WaitFor(emma_db);
 
 var marketService = builder.AddProject<Projects.EMMA_MarketService>("market-service")
@@ -44,6 +47,8 @@ var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
 var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
     .WithReference(emma_db)
     .WithEnvironment("Jwt__Key", jwtKey)
+    .WithEnvironment("Jwt__Issuer", "emma-identity")
+    .WithEnvironment("Jwt__Audience", "emma-api")
     .WaitFor(emma_db);
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
@@ -59,6 +64,8 @@ var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
     .WithReference(emma_db)
     .WithReference(kafka) // if needed later
     .WithEnvironment("Jwt__Key", jwtKey)
+    .WithEnvironment("Jwt__Issuer", "emma-identity")
+    .WithEnvironment("Jwt__Audience", "emma-api")
     .WaitFor(emma_db);
 
 var solarForecaster = builder.AddPythonApp("solar-forecaster", "../EMMA.SolarForecaster", "main.py")
