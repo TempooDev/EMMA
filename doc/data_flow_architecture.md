@@ -5,11 +5,21 @@ This document describes the data flow and interconnection between the IoT Servic
 ## Data Flow Diagram
 
 ```mermaid
-graph LR
-    IoT[IoT Service] -- MQTT --> Bridge[MQTT-Kafka Bridge]
-    Bridge -- "Fluent Bit" --> Kafka[Kafka Broker]
-    Kafka -- "Topic: telemetry-raw" --> Ingestor[Ingestor Service]
-    Ingestor -- SQL --> DB[(TimescaleDB)]
+graph TD
+    subgraph IoT_Telemetry
+        IoT[IoT Service] -- MQTT --> Bridge[MQTT-Kafka Bridge]
+        Bridge -- "Fluent Bit" --> Kafka[Kafka Broker]
+        Kafka -- "Topic: telemetry-raw" --> Ingestor[Ingestor Service]
+    end
+
+    subgraph Market_Intelligence
+        REData[REData API] -- HTTP --> MarketSvc[Market Service]
+        MarketSvc -- "Topic: market-alerts" --> Kafka
+        Kafka -- "alerts" --> CommandSvc[Command Service]
+    end
+
+    Ingestor -- SQL --> DB[(Telemetry DB)]
+    MarketSvc -- SQL --> DB
 ```
 
 ## Components Description
@@ -38,7 +48,22 @@ graph LR
 - **Function**:
   - Subscribes to the `telemetry-raw` topic.
   - Decodes messages.
-  - Stores data into the TimescaleDB database.
+  - Stores data into the Telemetry DB (TimescaleDB).
+
+### 5. Market Service (Monitor & Publisher)
+- **Role**: Continuous monitor for market prices (REData) and European interconnection flows.
+- **Technology**: .NET Worker.
+- **Function**:
+  - Fetches hourly prices from REData API.
+  - Saves prices and flows directly to Telemetry DB.
+  - Publishes `market-alerts` (e.g., Arbitrage Opportunities) to Kafka.
+
+### 6. Command Service (Strategy Executor)
+- **Role**: Asset controller executing strategies based on market conditions.
+- **Technology**: .NET Worker.
+- **Function**:
+  - Subscribes to `market-alerts` topic.
+  - Calculates asset setpoints (Decision Maker).
 
 ## IoT Connection Details
 
