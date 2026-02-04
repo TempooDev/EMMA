@@ -1,97 +1,93 @@
 import { useState } from 'react';
 
 interface LoginProps {
-    onLogin: (token: string) => void;
+  onLogin: (token: string) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
-    const [username, setUsername] = useState('admin');
-    const [password, setPassword] = useState('Admin123!');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('Admin123!');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-        try {
-            const formData = new URLSearchParams();
-            formData.append('username', username);
-            formData.append('password', password);
+    try {
+      const response = await fetch('/connect/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-            const response = await fetch('/connect/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: formData,
-            });
+      if (response.ok) {
+        const data = await response.json();
+        onLogin(data.access_token);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.error_description || 'Invalid credentials');
+      }
+    } catch (err) {
+      setError('Connection failed. Please check if the identity service is running.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (response.ok) {
-                const data = await response.json();
-                onLogin(data.access_token);
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                setError(errorData.error_description || 'Invalid credentials');
-            }
-        } catch (err) {
-            setError('Connection failed. Please check if the identity service is running.');
-            console.error('Login error:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <div className="login-header">
+          <div className="login-logo">
+            <span className="logo-accent">E</span>MMA
+          </div>
+          <h1>Welcome Back</h1>
+          <p className="login-subtitle">Energy Market Monitoring & Analytics</p>
+        </div>
 
-    return (
-        <div className="login-container">
-            <div className="login-card">
-                <div className="login-header">
-                    <div className="login-logo">
-                        <span className="logo-accent">E</span>MMA
-                    </div>
-                    <h1>Welcome Back</h1>
-                    <p className="login-subtitle">Energy Market Monitoring & Analytics</p>
-                </div>
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="input-group">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              required
+            />
+          </div>
 
-                <form onSubmit={handleSubmit} className="login-form">
-                    <div className="input-group">
-                        <label htmlFor="username">Username</label>
-                        <input
-                            id="username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Enter your username"
-                            required
-                        />
-                    </div>
+          <div className="input-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+          </div>
 
-                    <div className="input-group">
-                        <label htmlFor="password">Password</label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            required
-                        />
-                    </div>
+          {error && <div className="login-error">{error}</div>}
 
-                    {error && <div className="login-error">{error}</div>}
+          <button type="submit" className="login-button" disabled={loading}>
+            {loading ? <span className="loader"></span> : 'Sign In'}
+          </button>
+        </form>
 
-                    <button type="submit" className="login-button" disabled={loading}>
-                        {loading ? <span className="loader"></span> : 'Sign In'}
-                    </button>
-                </form>
+        <div className="login-footer">
+          <p>Demo credentials: <code>admin</code> / <code>Admin123!</code></p>
+        </div>
+      </div>
 
-                <div className="login-footer">
-                    <p>Demo credentials: <code>admin</code> / <code>Admin123!</code></p>
-                </div>
-            </div>
-
-            <style>{`
+      <style>{`
         .login-container {
           display: flex;
           align-items: center;
@@ -246,6 +242,6 @@ export function Login({ onLogin }: LoginProps) {
           to { transform: rotate(360deg); }
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }

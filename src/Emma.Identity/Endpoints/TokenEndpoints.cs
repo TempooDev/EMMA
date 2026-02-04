@@ -11,21 +11,40 @@ public static class TokenEndpoints
     public static void MapTokenEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/connect/token", async (
-            [FromForm] string username, 
-            [FromForm] string password,
+            LoginRequest request,
             UserManager<ApplicationUser> userManager,
-            ITokenService tokenService) =>
+            ITokenService tokenService,
+            ILoggerFactory loggerFactory) =>
         {
-            var user = await userManager.FindByNameAsync(username);
-            if (user == null || !await userManager.CheckPasswordAsync(user, password))
+            var logger = loggerFactory.CreateLogger("TokenEndpoints");
+            try
             {
-                return Results.Unauthorized();
-            }
+                logger.LogInformation("Login attempt for user: {Username}", request.Username);
+                var user = await userManager.FindByNameAsync(request.Username);
+                if (user == null)
+                {
+                    logger.LogWarning("User not found: {Username}", request.Username);
+                    return Results.Unauthorized();
+                }
 
-            var token = tokenService.CreateToken(user);
-            return Results.Ok(new { access_token = token, token_type = "Bearer", expires_in = 7200 });
+                var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
+                if (!passwordValid)
+                {
+                    logger.LogWarning("Invalid password for user: {Username}", request.Username);
+                    return Results.Unauthorized();
+                }
+
+                var token = tokenService.CreateToken(user);
+                logger.LogInformation("Token created successfully for user: {Username}", request.Username);
+                return Results.Ok(new { access_token = token, token_type = "Bearer", expires_in = 7200 });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error during login for user: {Username}", request.Username);
+                return Results.Problem("An internal error occurred during login.");
+            }
         })
-        .DisableAntiforgery(); // Simplified for microservice token endpoint
+        .DisableAntiforgery();
 
         app.MapGet("/userinfo", (ClaimsPrincipal user) =>
         {
@@ -40,4 +59,4 @@ public static class TokenEndpoints
         .RequireAuthorization();
     }
 }
- public record LoginRequest(string Username, string Password);
+public record LoginRequest(string Username, string Password);

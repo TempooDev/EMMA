@@ -1,4 +1,5 @@
 using System.Text;
+using Dapper;
 using Emma.Identity.Data;
 using Emma.Identity.Endpoints;
 using Emma.Identity.Models;
@@ -6,6 +7,8 @@ using Emma.Identity.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,20 +18,21 @@ builder.AddServiceDefaults();
 // Database
 builder.Services.AddDbContext<IdentityDbContext>(options =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+    var connectionString = builder.Configuration.GetConnectionString("emma-db")
         ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
     options.UseNpgsql(connectionString);
 });
 
-builder.Services.AddSingleton<Npgsql.NpgsqlDataSource>(sp => 
+builder.Services.AddSingleton<Npgsql.NpgsqlDataSource>(sp =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+    var connectionString = builder.Configuration.GetConnectionString("emma-db")
         ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
     return Npgsql.NpgsqlDataSource.Create(connectionString);
 });
 
 // Identity
-builder.Services.AddIdentityCore<ApplicationUser>(options => {
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+{
     options.Password.RequireDigit = false;
     options.Password.RequiredLength = 4;
     options.Password.RequireNonAlphanumeric = false;
@@ -73,14 +77,29 @@ app.MapApiKeyEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    db.Database.EnsureCreated();
-    
+
+    // Explicitly create tables if AspNetUsers is missing
+    // EnsureCreated() skips if ANY table (like EMMA.Server's tables) exists
+    using var conn = db.Database.GetDbConnection();
+    await conn.OpenAsync();
+    var tableExists = await conn.ExecuteScalarAsync<bool>(
+        "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'AspNetUsers')");
+
+    if (!tableExists)
+    {
+        var creator = db.Database.GetService<IDatabaseCreator>() as RelationalDatabaseCreator;
+        if (creator != null)
+        {
+            await creator.CreateTablesAsync();
+        }
+    }
+
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     if (await userManager.FindByNameAsync("admin") == null)
     {
-        var admin = new ApplicationUser 
-        { 
-            UserName = "admin", 
+        var admin = new ApplicationUser
+        {
+            UserName = "admin",
             Email = "admin@emma.ai",
             TenantId = "T001",
             AssignedAssets = "asset-001,asset-002"

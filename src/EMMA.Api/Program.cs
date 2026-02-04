@@ -1,30 +1,30 @@
-using Mapster;
-using Npgsql;
-using Scalar.AspNetCore;
+using System.Text;
 using EMMA.Api.Features.Assets;
 using EMMA.Api.Features.Assets.Data;
 using EMMA.Api.Features.Market;
 using EMMA.Api.Features.Market.Data;
 using EMMA.Api.Infrastructure.Identity;
+using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using System.Text;
-using Microsoft.AspNetCore.RateLimiting;
+using Npgsql;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
 // Add services to the container.
-builder.Services.AddOpenApi(options => 
+builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
         document.Info.Title = "EMMA Developer API";
         document.Info.Description = "Real-time energy market results and asset control for third-party developers.";
         document.Info.Version = "v1.0";
-        
+
         document.Components ??= new OpenApiComponents();
         document.Components.SecuritySchemes.Add("Bearer", new OpenApiSecurityScheme
         {
@@ -47,26 +47,26 @@ builder.Services.AddOpenApi(options =>
 });
 
 // Dapper / Npgsql
-builder.Services.AddSingleton<NpgsqlDataSource>(sp => 
+builder.Services.AddSingleton<NpgsqlDataSource>(sp =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("emma-db") 
+    var connectionString = builder.Configuration.GetConnectionString("emma-db")
         ?? throw new InvalidOperationException("Connection string 'emma-db' is missing.");
     return NpgsqlDataSource.Create(connectionString);
 });
 
 // Repositories
-builder.Services.AddSingleton<IAssetRepository, AssetRepository>();
-builder.Services.AddSingleton<IMarketRepository, MarketRepository>();
+builder.Services.AddScoped<IAssetRepository, AssetRepository>();
+builder.Services.AddScoped<IMarketRepository, MarketRepository>();
 
 // Services
-builder.Services.AddSingleton<IAssetService, AssetService>();
-builder.Services.AddSingleton<IMarketService, MarketService>();
+builder.Services.AddScoped<IAssetService, AssetService>();
+builder.Services.AddScoped<IMarketService, MarketService>();
 builder.Services.AddScoped<ITenantProvider, TenantProvider>();
 builder.Services.AddHttpContextAccessor();
 
 // Authentication & JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing from configuration.");
-builder.Services.AddAuthentication(options => 
+builder.Services.AddAuthentication(options =>
     {
         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -100,7 +100,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    
+
     options.AddFixedWindowLimiter("api-key-limit", opt =>
     {
         opt.Window = TimeSpan.FromMinutes(1);
