@@ -27,7 +27,7 @@ builder.AddKafkaConsumer<string, string>("messaging", settings =>
     settings.Config.AutoOffsetReset = Confluent.Kafka.AutoOffsetReset.Earliest;
 });
 
-builder.Services.AddScoped<ITelemetryRepository, TelemetryRepository>();
+builder.Services.AddSingleton<ITelemetryRepository, TelemetryRepository>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
