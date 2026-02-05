@@ -1,16 +1,19 @@
+version: "3"
+
 services:
   compose-dashboard:
     image: "mcr.microsoft.com/dotnet/nightly/aspire-dashboard:latest"
     environment:
       ASPIRE_DASHBOARD_FORWARDEDHEADERS_ENABLED: "true"
     ports:
-      - "8080:18888"
+      - "18888" # Dokploy mapeará esto automáticamente
     expose:
       - "18889"
       - "18890"
     networks:
       - "dokploy-network"
     restart: "always"
+
   postgresql:
     image: "docker.io/timescale/timescaledb:latest-pg17"
     environment:
@@ -18,10 +21,13 @@ services:
       POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "${POSTGRESQL_PASSWORD}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
     networks:
       - "dokploy-network"
+
   messaging:
     image: "docker.io/confluentinc/confluent-local:8.1.0"
     environment:
@@ -33,6 +39,7 @@ services:
       - "9093"
     networks:
       - "dokploy-network"
+
   mqtt-bridge:
     image: "${MQTT_BRIDGE_IMAGE}"
     environment:
@@ -48,6 +55,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   energy-simulator:
     image: "${ENERGY_SIMULATOR_IMAGE}"
     environment:
@@ -65,6 +73,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   server:
     image: "${SERVER_IMAGE}"
     environment:
@@ -95,13 +104,14 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
-    ports:
+    expose:
       - "${SERVER_PORT}"
     depends_on:
       postgresql:
         condition: "service_started"
     networks:
-      - "dokploy-network"  
+      - "dokploy-network"
+
   market-service:
     image: "${MARKET_SERVICE_IMAGE}"
     environment:
@@ -129,6 +139,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   ingestion:
     image: "${INGESTION_IMAGE}"
     environment:
@@ -166,6 +177,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   emma-identity:
     image: "${EMMA_IDENTITY_IMAGE}"
     environment:
@@ -180,6 +192,9 @@ services:
       Jwt__Key: "${JWT_KEY}"
       Jwt__Issuer: "emma-identity"
       Jwt__Audience: "emma-api"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
+      OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+      OTEL_SERVICE_NAME: "emma-identity"
     expose:
       - "8080"
     depends_on:
@@ -187,6 +202,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   webfrontend:
     image: "${WEBFRONTEND_IMAGE}"
     environment:
@@ -194,7 +210,6 @@ services:
       PORT: "8000"
       SERVER_HTTP: "http://server:${SERVER_PORT}"
       services__server__http__0: "http://server:${SERVER_PORT}"
-      SERVER_HTTPS: "https://server:${SERVER_PORT}"
       EMMA_IDENTITY_HTTP: "http://emma-identity:8080"
       services__emma-identity__http__0: "http://emma-identity:8080"
       IDENTITY_HTTP: "http://emma-identity:8080"
@@ -208,6 +223,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
     environment:
@@ -225,6 +241,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   emma-api:
     image: "${EMMA_API_IMAGE}"
     environment:
@@ -273,6 +290,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   solar-forecaster:
     image: "${SOLAR_FORECASTER_IMAGE}"
     environment:
@@ -299,6 +317,7 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
   optimizer:
     image: "${OPTIMIZER_IMAGE}"
     environment:
@@ -327,6 +346,10 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
+
+volumes:
+  postgres_data:
+
 networks:
   dokploy-network:
     external: true
