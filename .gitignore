@@ -56,3 +56,4 @@ out/
 # User specific
 *.local
 src/frontend/obj/*
+src/EMMA.AppHost/aspire-output/.env.Production
