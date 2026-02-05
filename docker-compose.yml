@@ -1,0 +1,97 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  emma-server:
+    build:
+      context: .
+      dockerfile: src/EMMA.Server/Dockerfile
+    container_name: emma-server
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ConnectionStrings__emma-db=${DB_CONNECTION_STRING}
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      - kafka
+
+  emma-market-service:
+    build:
+      context: .
+      dockerfile: src/EMMA.MarketService/Dockerfile
+    container_name: emma-market-service
+    environment:
+      - ConnectionStrings__emma-db=${DB_CONNECTION_STRING}
+      - ConnectionStrings__messaging=kafka:9092
+    depends_on:
+      - kafka
+      - emma-server
+
+  emma-ingestion:
+    build:
+      context: .
+      dockerfile: src/EMMA.Ingestion/Dockerfile
+    container_name: emma-ingestion
+    environment:
+      - ConnectionStrings__emma-db=${DB_CONNECTION_STRING}
+      - ConnectionStrings__messaging=kafka:9092
+    depends_on:
+      - kafka
+      - emma-server
+
+  energy-simulator:
+    build:
+      context: src/energy-simulator
+    container_name: energy-simulator
+    environment:
+      - MQTT_BROKER_URL=mqtt-bridge
+    depends_on:
+      - mqtt-bridge
+
+  mqtt-bridge:
+    build:
+      context: src/simple-mqtt-kafka-bridge
+    container_name: mqtt-bridge
+    ports:
+      - "1883:1883"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_TOPIC=telemetry-raw
+    depends_on:
+      - kafka
+
+  webfrontend:
+    build:
+      context: src/frontend
+    container_name: webfrontend
+    ports:
+      - "80:80"
+    depends_on:
+      - emma-server
+
+# Note: The database is external.
+# Please allow Docker to access the host if the DB is on the host machine (host.docker.internal).
+# Run with: DB_CONNECTION_STRING="User ID=...;Password=...;Host=host.docker.internal;Port=5432;Database=emma-db;" docker-compose up
