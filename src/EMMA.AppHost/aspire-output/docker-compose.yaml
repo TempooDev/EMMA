@@ -9,19 +9,8 @@ services:
       - "18889"
       - "18890"
     networks:
-      - "aspire"
+      - "dokploy-network"
     restart: "always"
-  postgresql:
-    image: "docker.io/timescale/timescaledb:latest-pg17"
-    environment:
-      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"
-      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
-      POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "${POSTGRESQL_PASSWORD}"
-    expose:
-      - "5432"
-    networks:
-      - "aspire"
   messaging:
     image: "docker.io/confluentinc/confluent-local:8.1.0"
     environment:
@@ -32,7 +21,7 @@ services:
       - "9092"
       - "9093"
     networks:
-      - "aspire"
+      - "dokploy-network"
   mqtt-bridge:
     image: "${MQTT_BRIDGE_IMAGE}"
     environment:
@@ -47,7 +36,7 @@ services:
       messaging:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   energy-simulator:
     image: "${ENERGY_SIMULATOR_IMAGE}"
     environment:
@@ -64,7 +53,7 @@ services:
       mqtt-bridge:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   server:
     image: "${SERVER_IMAGE}"
     environment:
@@ -73,21 +62,21 @@ services:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "${SERVER_PORT}"
-      ConnectionStrings__app-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
-      APP_DB_HOST: "postgresql"
+      ConnectionStrings__app-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      APP_DB_HOST: "infraestructura-db-mqv38c"
       APP_DB_PORT: "5432"
       APP_DB_USERNAME: "postgres"
       APP_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/app-db"
-      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/app-db"
+      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/app-db"
+      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/app-db"
       APP_DB_DATABASENAME: "app-db"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
       Jwt__Key: "${JWT_KEY}"
       Jwt__Issuer: "emma-identity"
@@ -97,11 +86,8 @@ services:
       OTEL_SERVICE_NAME: "server"
     ports:
       - "${SERVER_PORT}"
-    depends_on:
-      postgresql:
-        condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   market-service:
     image: "${MARKET_SERVICE_IMAGE}"
     environment:
@@ -111,13 +97,13 @@ services:
       ConnectionStrings__messaging: "messaging:9092"
       MESSAGING_HOST: "messaging"
       MESSAGING_PORT: "9092"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
@@ -128,28 +114,28 @@ services:
       server:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   ingestion:
     image: "${INGESTION_IMAGE}"
     environment:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
       OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
-      ConnectionStrings__app-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
-      APP_DB_HOST: "postgresql"
+      ConnectionStrings__app-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
+      APP_DB_HOST: "infraestructura-db-mqv38c"
       APP_DB_PORT: "5432"
       APP_DB_USERNAME: "postgres"
       APP_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/app-db"
-      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/app-db"
+      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/app-db"
+      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/app-db"
       APP_DB_DATABASENAME: "app-db"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
       ConnectionStrings__messaging: "messaging:9092"
       MESSAGING_HOST: "messaging"
@@ -158,14 +144,12 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "ingestion"
     depends_on:
-      postgresql:
-        condition: "service_started"
       messaging:
         condition: "service_started"
       server:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   emma-identity:
     image: "${EMMA_IDENTITY_IMAGE}"
     environment:
@@ -174,13 +158,13 @@ services:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "${EMMA_IDENTITY_PORT}"
-      ConnectionStrings__identity-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
-      IDENTITY_DB_HOST: "postgresql"
+      ConnectionStrings__identity-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
+      IDENTITY_DB_HOST: "infraestructura-db-mqv38c"
       IDENTITY_DB_PORT: "5432"
       IDENTITY_DB_USERNAME: "postgres"
       IDENTITY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      IDENTITY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/identity-db"
-      IDENTITY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/identity-db"
+      IDENTITY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/identity-db"
+      IDENTITY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/identity-db"
       IDENTITY_DB_DATABASENAME: "identity-db"
       Jwt__Key: "${JWT_KEY}"
       Jwt__Issuer: "emma-identity"
@@ -190,11 +174,8 @@ services:
       OTEL_SERVICE_NAME: "emma-identity"
     expose:
       - "${EMMA_IDENTITY_PORT}"
-    depends_on:
-      postgresql:
-        condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   webfrontend:
     image: "${WEBFRONTEND_IMAGE}"
     environment:
@@ -216,7 +197,7 @@ services:
       server:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
     environment:
@@ -233,7 +214,7 @@ services:
       messaging:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   emma-api:
     image: "${EMMA_API_IMAGE}"
     environment:
@@ -242,29 +223,29 @@ services:
       OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "${EMMA_API_PORT}"
-      ConnectionStrings__app-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
-      APP_DB_HOST: "postgresql"
+      ConnectionStrings__app-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
+      APP_DB_HOST: "infraestructura-db-mqv38c"
       APP_DB_PORT: "5432"
       APP_DB_USERNAME: "postgres"
       APP_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/app-db"
-      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/app-db"
+      APP_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/app-db"
+      APP_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/app-db"
       APP_DB_DATABASENAME: "app-db"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
-      ConnectionStrings__identity-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
-      IDENTITY_DB_HOST: "postgresql"
+      ConnectionStrings__identity-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
+      IDENTITY_DB_HOST: "infraestructura-db-mqv38c"
       IDENTITY_DB_PORT: "5432"
       IDENTITY_DB_USERNAME: "postgres"
       IDENTITY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      IDENTITY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/identity-db"
-      IDENTITY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/identity-db"
+      IDENTITY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/identity-db"
+      IDENTITY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/identity-db"
       IDENTITY_DB_DATABASENAME: "identity-db"
       ConnectionStrings__messaging: "messaging:9092"
       MESSAGING_HOST: "messaging"
@@ -277,11 +258,8 @@ services:
       OTEL_SERVICE_NAME: "emma-api"
     expose:
       - "${EMMA_API_PORT}"
-    depends_on:
-      postgresql:
-        condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   solar-forecaster:
     image: "${SOLAR_FORECASTER_IMAGE}"
     environment:
@@ -289,13 +267,13 @@ services:
       OTEL_LOGS_EXPORTER: "otlp"
       OTEL_METRICS_EXPORTER: "otlp"
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
       ConnectionStrings__messaging: "messaging:9092"
       MESSAGING_HOST: "messaging"
@@ -303,11 +281,8 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "solar-forecaster"
-    depends_on:
-      postgresql:
-        condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
   optimizer:
     image: "${OPTIMIZER_IMAGE}"
     environment:
@@ -315,13 +290,13 @@ services:
       OTEL_LOGS_EXPORTER: "otlp"
       OTEL_METRICS_EXPORTER: "otlp"
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
-      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
-      TELEMETRY_DB_HOST: "postgresql"
+      ConnectionStrings__telemetry-db: "Host=infraestructura-db-mqv38c;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
+      TELEMETRY_DB_HOST: "infraestructura-db-mqv38c"
       TELEMETRY_DB_PORT: "5432"
       TELEMETRY_DB_USERNAME: "postgres"
       TELEMETRY_DB_PASSWORD: "${POSTGRESQL_PASSWORD}"
-      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@postgresql:5432/telemetry-db"
-      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://postgresql:5432/telemetry-db"
+      TELEMETRY_DB_URI: "postgresql://postgres:${POSTGRESQL_PASSWORD}@infraestructura-db-mqv38c:5432/telemetry-db"
+      TELEMETRY_DB_JDBCCONNECTIONSTRING: "jdbc:postgresql://infraestructura-db-mqv38c:5432/telemetry-db"
       TELEMETRY_DB_DATABASENAME: "telemetry-db"
       ConnectionStrings__messaging: "messaging:9092"
       MESSAGING_HOST: "messaging"
@@ -330,12 +305,10 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "optimizer"
     depends_on:
-      postgresql:
-        condition: "service_started"
       solar-forecaster:
         condition: "service_started"
     networks:
-      - "aspire"
+      - "dokploy-network"
 networks:
-  aspire:
-    driver: "bridge"
+  dokploy-network:
+    external: true
