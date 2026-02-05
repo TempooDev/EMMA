@@ -9,7 +9,7 @@ services:
       - "18889"
       - "18890"
     networks:
-      - "dokploy-network"
+      - "aspire"
     restart: "always"
   postgresql:
     image: "docker.io/timescale/timescaledb:latest-pg17"
@@ -21,18 +21,18 @@ services:
     expose:
       - "5432"
     networks:
-      - "dokploy-network"
+      - "aspire"
   messaging:
     image: "docker.io/confluentinc/confluent-local:8.1.0"
     environment:
-      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,PLAINTEXT_HOST://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://localhost:29092,CONTROLLER://localhost:29093,PLAINTEXT_HOST://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:9093"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT"
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://messaging:29092,PLAINTEXT_HOST://messaging:9092,PLAINTEXT_INTERNAL://messaging:9093"
     expose:
       - "9092"
       - "9093"
     networks:
-      - "dokploy-network"
+      - "aspire"
   mqtt-bridge:
     image: "${MQTT_BRIDGE_IMAGE}"
     environment:
@@ -47,7 +47,7 @@ services:
       messaging:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   energy-simulator:
     image: "${ENERGY_SIMULATOR_IMAGE}"
     environment:
@@ -64,7 +64,7 @@ services:
       mqtt-bridge:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   server:
     image: "${SERVER_IMAGE}"
     environment:
@@ -101,7 +101,7 @@ services:
       postgresql:
         condition: "service_started"
     networks:
-      - "dokploy-network"  
+      - "aspire"
   market-service:
     image: "${MARKET_SERVICE_IMAGE}"
     environment:
@@ -128,7 +128,7 @@ services:
       server:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   ingestion:
     image: "${INGESTION_IMAGE}"
     environment:
@@ -165,7 +165,7 @@ services:
       server:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   emma-identity:
     image: "${EMMA_IDENTITY_IMAGE}"
     environment:
@@ -186,7 +186,7 @@ services:
       postgresql:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   webfrontend:
     image: "${WEBFRONTEND_IMAGE}"
     environment:
@@ -207,7 +207,7 @@ services:
       server:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
     environment:
@@ -224,7 +224,7 @@ services:
       messaging:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   emma-api:
     image: "${EMMA_API_IMAGE}"
     environment:
@@ -272,7 +272,7 @@ services:
       postgresql:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   solar-forecaster:
     image: "${SOLAR_FORECASTER_IMAGE}"
     environment:
@@ -298,7 +298,7 @@ services:
       postgresql:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
   optimizer:
     image: "${OPTIMIZER_IMAGE}"
     environment:
@@ -326,7 +326,7 @@ services:
       solar-forecaster:
         condition: "service_started"
     networks:
-      - "dokploy-network"
+      - "aspire"
 networks:
-  dokploy-network:
-    external: true
+  aspire:
+    driver: "bridge"
