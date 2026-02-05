@@ -272,12 +272,6 @@ services:
       - "${EMMA_API_PORT}"
     networks:
       - "dokploy-network"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.api-router.rule=Host(`api.emma.antoniobermudez.dev`)"
-      - "traefik.http.routers.api-router.entrypoints=websecure"
-      - "traefik.http.routers.api-router.tls.certResolver=letsencrypt"
-      - "traefik.http.services.api-router.loadbalancer.server.port=${EMMA_API_PORT}"
 
   solar-forecaster:
     image: "${SOLAR_FORECASTER_IMAGE}"
