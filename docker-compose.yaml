@@ -13,12 +13,6 @@ services:
     networks:
       - "dokploy-network"
     restart: "always"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.aspire-dash.rule=Host(`dashboard.emma.antoniobermudez.dev`)"
-      - "traefik.http.routers.aspire-dash.entrypoints=websecure"
-      - "traefik.http.routers.aspire-dash.tls.certResolver=letsencrypt"
-      - "traefik.http.services.aspire-dash.loadbalancer.server.port=18888"
 
   messaging:
     image: "docker.io/confluentinc/confluent-local:8.1.0"
@@ -100,12 +94,6 @@ services:
       - "${SERVER_PORT}"
     networks:
       - "dokploy-network"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.server-router.rule=Host(`server.emma.antoniobermudez.dev`)"
-      - "traefik.http.routers.server-router.entrypoints=websecure"
-      - "traefik.http.routers.server-router.tls.certResolver=letsencrypt"
-      - "traefik.http.services.server-router.loadbalancer.server.port=${SERVER_PORT}"
 
   market-service:
     image: "${MARKET_SERVICE_IMAGE}"
@@ -197,12 +185,6 @@ services:
       - "${EMMA_IDENTITY_PORT}"
     networks:
       - "dokploy-network"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.identity-router.rule=Host(`auth.emma.antoniobermudez.dev`)"
-      - "traefik.http.routers.identity-router.entrypoints=websecure"
-      - "traefik.http.routers.identity-router.tls.certResolver=letsencrypt"
-      - "traefik.http.services.identity-router.loadbalancer.server.port=${EMMA_IDENTITY_PORT}"
 
   webfrontend:
     image: "${WEBFRONTEND_IMAGE}"
@@ -226,12 +208,6 @@ services:
         condition: "service_started"
     networks:
       - "dokploy-network"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend-router.rule=Host(`app.emma.antoniobermudez.dev`)"
-      - "traefik.http.routers.frontend-router.entrypoints=websecure"
-      - "traefik.http.routers.frontend-router.tls.certResolver=letsencrypt"
-      - "traefik.http.services.frontend-router.loadbalancer.server.port=8000"
 
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
