@@ -1,6 +1,8 @@
 # Base stage
 FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine AS base
 WORKDIR /app
+# Install krb5 libraries for Npgsql GSSAPI support
+RUN apk add --no-cache krb5-libs
 
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build

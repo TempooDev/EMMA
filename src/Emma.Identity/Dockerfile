@@ -8,7 +8,10 @@ EXPOSE 8081
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     libgssapi-krb5-2 \
-    && rm -rf /var/lib/apt/lists/*
+    libkrb5-3 \
+    krb5-user \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2 /usr/lib/libgssapi_krb5.so.2
 
 # Build image
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build

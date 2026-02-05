@@ -1,6 +1,8 @@
 # Base stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
 WORKDIR /app
+# Install krb5 libraries for Npgsql GSSAPI support
+RUN apk add --no-cache krb5-libs
 EXPOSE 8080
 EXPOSE 8081
 
