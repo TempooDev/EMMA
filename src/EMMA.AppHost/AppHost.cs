@@ -65,18 +65,18 @@ var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
   .WaitFor(server)
   .PublishAsDockerComposeService((_, service) => { service.Name = "ingestion"; });
 
-var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
+var identity = builder.AddDockerfile("emma-identity", "../..", "src/Emma.Identity/Dockerfile")
+  .WithHttpEndpoint(targetPort: 8080, name: "http")
   .WithReference(identityDb)
   .WithEnvironment("Jwt__Key", jwtKey)
   .WithEnvironment("Jwt__Issuer", "emma-identity")
   .WithEnvironment("Jwt__Audience", "emma-api")
   .WaitFor(identityDb)
   .PublishAsDockerComposeService((_, service) => { service.Name = "emma-identity"; });
-;
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
   .WithReference(server)
-  .WithReference(identity)
+  .WithReference(identity.GetEndpoint("http"))
   .WithEnvironment("SERVER_HTTP", server.GetEndpoint("http"))
   .WithEnvironment("IDENTITY_HTTP", identity.GetEndpoint("http"))
   .WaitFor(server)

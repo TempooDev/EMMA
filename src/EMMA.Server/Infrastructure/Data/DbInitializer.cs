@@ -15,8 +15,19 @@ public class DbInitializer(
         {
             logger.LogInformation("Waiting for database connections...");
 
+            await EnsureDatabaseExistsAsync(appDataSource.ConnectionString, "app-db");
+            await EnsureDatabaseExistsAsync(telemetryDataSource.ConnectionString, "telemetry-db");
+
             await InitializeDatabaseAsync(appDataSource, SchemaSql.AppScripts, "AppDB", stoppingToken);
-            await InitializeDatabaseAsync(telemetryDataSource, SchemaSql.TelemetryScripts, "TelemetryDB", stoppingToken);
+
+            // Install TimescaleDB extension for TelemetryDB
+            using (var conn = await telemetryDataSource.OpenConnectionAsync(stoppingToken))
+            {
+                await conn.ExecuteAsync("CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;");
+            }
+
+            await InitializeDatabaseAsync(telemetryDataSource, SchemaSql.TelemetryScripts, "TelemetryDB",
+                stoppingToken);
 
             // Special Post-Initialization for Telemetry (TimescaleDB Policies)
             await ApplyTelemetryPoliciesAsync(telemetryDataSource, stoppingToken);
@@ -29,7 +40,8 @@ public class DbInitializer(
         }
     }
 
-    private async Task InitializeDatabaseAsync(NpgsqlDataSource dataSource, Dictionary<string, string> scripts, string dbName, CancellationToken token)
+    private async Task InitializeDatabaseAsync(NpgsqlDataSource dataSource, Dictionary<string, string> scripts,
+        string dbName, CancellationToken token)
     {
         logger.LogInformation("Initializing {DbName} schema...", dbName);
         using var connection = await dataSource.OpenConnectionAsync(token);
@@ -54,12 +66,46 @@ public class DbInitializer(
         try
         {
             logger.LogInformation("Applying TimescaleDB policies...");
-            await connection.ExecuteAsync($"DO $$ BEGIN {SchemaSql.AssetMetricsCompression} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
-            await connection.ExecuteAsync($"DO $$ BEGIN {SchemaSql.AssetMetricsRetention} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
+            await connection.ExecuteAsync(
+                $"DO $$ BEGIN {SchemaSql.AssetMetricsCompression} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
+            await connection.ExecuteAsync(
+                $"DO $$ BEGIN {SchemaSql.AssetMetricsRetention} EXCEPTION WHEN OTHERS THEN NULL; END $$;");
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Error applying TimescaleDB policies (might already exist)");
+        }
+    }
+
+    private async Task EnsureDatabaseExistsAsync(string connectionString, string targetDbName)
+    {
+        try
+        {
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+            var originalDb = builder.Database;
+            // Should match targetDbName but trusting connection string
+            if (string.IsNullOrEmpty(originalDb)) originalDb = targetDbName;
+
+            builder.Database = "postgres"; // Connect to default DB
+
+            using var masterConn = new Npgsql.NpgsqlConnection(builder.ToString());
+            await masterConn.OpenAsync();
+
+            var exists = await masterConn.ExecuteScalarAsync<bool>(
+                "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = @dbName)",
+                new { dbName = originalDb });
+
+            if (!exists)
+            {
+                logger.LogInformation("Database '{DbName}' does not exist. Creating...", originalDb);
+                await masterConn.ExecuteAsync($"CREATE DATABASE \"{originalDb}\"");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex,
+                "Failed to ensure database '{DbName}' exists. It might already exist or permission denied.",
+                targetDbName);
         }
     }
 }

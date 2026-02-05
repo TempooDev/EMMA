@@ -113,6 +113,36 @@ using (var scope = app.Services.CreateScope())
 
     // Explicitly create tables if AspNetUsers is missing
     // EnsureCreated() skips if ANY table (like EMMA.Server's tables) exists
+    // Check and create database if it doesn't exist
+    var connectionString = app.Configuration.GetConnectionString("identity-db");
+    if (!string.IsNullOrEmpty(connectionString))
+    {
+        var connBuilder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+        var originalDb = connBuilder.Database;
+        connBuilder.Database = "postgres"; // Connect to default DB to check/create
+
+        try
+        {
+            using var masterConn = new Npgsql.NpgsqlConnection(connBuilder.ToString());
+            await masterConn.OpenAsync();
+            var dbExists = await masterConn.ExecuteScalarAsync<bool>(
+                "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = @dbName)", new { dbName = originalDb });
+
+            if (!dbExists)
+            {
+                await masterConn.ExecuteAsync($"CREATE DATABASE \"{originalDb}\"");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log warning but proceed - maybe user doesn't have permissions or DB exists but we can't see it?
+            // If connection fails completely, the next step will fail anyway.
+            app.Logger.LogWarning(ex, "Failed to ensure database '{DbName}' exists.", originalDb);
+        }
+    }
+
+    // Explicitly create tables if AspNetUsers is missing
+    // EnsureCreated() skips if ANY table (like EMMA.Server's tables) exists
     using var conn = db.Database.GetDbConnection();
     await conn.OpenAsync();
     var tableExists = await conn.ExecuteScalarAsync<bool>(
