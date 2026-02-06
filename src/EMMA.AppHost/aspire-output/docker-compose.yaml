@@ -20,6 +20,11 @@ services:
       POSTGRES_PASSWORD: "${POSTGRESQL_PASSWORD}"
     expose:
       - "5432"
+    volumes:
+      - type: "bind"
+        target: "/docker-entrypoint-initdb.d/init.sql"
+        source: "${POSTGRESQL_BINDMOUNT_0}"
+        read_only: false
     networks:
       - "aspire"
   messaging:

@@ -13,6 +13,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/lib/x86_64-linux-gnu/libgssapi_krb5.so.2 /usr/lib/libgssapi_krb5.so.2
 
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu
+
 # Build image
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release

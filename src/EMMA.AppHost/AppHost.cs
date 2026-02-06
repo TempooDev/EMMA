@@ -8,6 +8,7 @@ var compose = builder.AddDockerComposeEnvironment("compose").WithDashboard(dashb
 
 var postgresql = builder.AddPostgres("postgresql")
   .WithImage("timescale/timescaledb", "latest-pg17")
+  .WithBindMount("./init.sql", "/docker-entrypoint-initdb.d/init.sql")
   .WithPgAdmin();
 
 var identityDb = postgresql.AddDatabase("identity-db");
