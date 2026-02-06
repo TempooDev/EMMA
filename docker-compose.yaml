@@ -15,7 +15,7 @@ services:
     restart: "always"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dashboard-router.service=dashboard-router-websecure"
+      - "traefik.http.services.dashboard-svc.loadbalancer.server.port=18888"
 
   postgresql:
     image: "docker.io/timescale/timescaledb:latest-pg17"
@@ -118,7 +118,7 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.server-router.service=emma-service-rahe4u-2-websecure"
+      - "traefik.http.services.server-svc.loadbalancer.server.port=${SERVER_PORT}"
 
   market-service:
     image: "${MARKET_SERVICE_IMAGE}"
@@ -212,7 +212,7 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.identity-router.service=emma-service-rahe4u-4-websecure"
+      - "traefik.http.services.identity-svc.loadbalancer.server.port=8080"
 
   webfrontend:
     image: "${WEBFRONTEND_IMAGE}"
@@ -236,7 +236,7 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend-router.service=emma-service-rahe4u-3-websecure"
+      - "traefik.http.services.frontend-svc.loadbalancer.server.port=8000"
 
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
@@ -306,7 +306,7 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api-router.service=emma-service-rahe4u-1-websecure"
+      - "traefik.http.services.api-svc.loadbalancer.server.port=${EMMA_API_PORT}"
 
   solar-forecaster:
     image: "${SOLAR_FORECASTER_IMAGE}"
