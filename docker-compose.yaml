@@ -93,6 +93,7 @@ services:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "5000"
       ConnectionStrings__app-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
+      Jwt__Key: "${JWT_KEY}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
@@ -249,6 +250,7 @@ services:
     environment:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "5002"
+      ConnectionStrings__identity-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
       Jwt__Key: "${JWT_KEY}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
