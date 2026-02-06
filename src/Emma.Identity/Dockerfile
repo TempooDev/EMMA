@@ -1,8 +1,7 @@
 # Base image
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
-EXPOSE 8080
-EXPOSE 8081
+
 
 # Install krb5 libraries for Npgsql GSSAPI support
 RUN apt-get update \
