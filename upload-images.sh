@@ -17,7 +17,9 @@ if [ -z "$ASPIRE_TAG" ]; then
 fi
 
 # 2. Detectar Servicios (Busca el patrón 'Successfully tagged NAME as')
-SERVICES=$(echo "$OUTPUT" | grep "Successfully tagged" | sed -E 's/.*Successfully tagged ([^ ]+) as.*/\1/' | sort -u)
+# Primero eliminamos los códigos de escape ANSI (colores) del output
+CLEAN_OUTPUT=$(echo "$OUTPUT" | sed 's/\x1b\[[0-9;]*m//g')
+SERVICES=$(echo "$CLEAN_OUTPUT" | grep "Successfully tagged" | sed -E 's/.*Successfully tagged ([^ ]+) as.*/\1/' | sort -u)
 
 if [ -z "$SERVICES" ]; then
     echo "No se detectaron servicios."
