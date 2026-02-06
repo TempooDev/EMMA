@@ -16,8 +16,8 @@ if [ -z "$ASPIRE_TAG" ]; then
     exit 1
 fi
 
-# 2. Detectar Servicios (Filtra líneas de éxito, extrae nombre después de 'as ')
-SERVICES=$(echo "$OUTPUT" | grep "Successfully tagged" | sed -n 's/.*as \([a-z-]*\):aspire-deploy-.*/\1/p' | sort -u)
+# 2. Detectar Servicios (Busca el patrón 'Successfully tagged NAME as')
+SERVICES=$(echo "$OUTPUT" | grep "Successfully tagged" | sed -E 's/.*Successfully tagged ([^ ]+) as.*/\1/' | sort -u)
 
 if [ -z "$SERVICES" ]; then
     echo "No se detectaron servicios."
