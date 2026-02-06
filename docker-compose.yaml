@@ -93,6 +93,7 @@ services:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "5000"
       ConnectionStrings__app-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=app-db"
+      ConnectionStrings__telemetry-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=telemetry-db"
       Jwt__Key: "${JWT_KEY}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
