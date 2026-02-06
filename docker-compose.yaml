@@ -226,7 +226,7 @@ services:
       - "traefik.http.routers.frontend-router.tls=true"
       - "traefik.http.routers.frontend-router.tls.certresolver=letsencrypt"
       - "traefik.http.routers.frontend-router.service=frontend-svc"
-      - "traefik.http.services.frontend-svc.loadbalancer.server.port=8000"
+      - "traefik.http.services.frontend-svc.loadbalancer.server.port=80"
 
   command-service:
     image: "${COMMAND_SERVICE_IMAGE}"
