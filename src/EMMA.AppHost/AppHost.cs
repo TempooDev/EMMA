@@ -2,8 +2,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var compose = builder.AddDockerComposeEnvironment("compose").WithDashboard(dashboard =>
 {
-  dashboard.WithHostPort(1888)
-    .WithForwardedHeaders(enabled: true);
+    dashboard.WithHostPort(1888)
+      .WithForwardedHeaders(enabled: true);
 });
 
 var postgresql = builder.AddPostgres("postgresql")
@@ -66,8 +66,7 @@ var ingestion = builder.AddProject<Projects.EMMA_Ingestion>("ingestion")
   .WaitFor(server)
   .PublishAsDockerComposeService((_, service) => { service.Name = "ingestion"; });
 
-var identity = builder.AddDockerfile("emma-identity", "../..", "src/Emma.Identity/Dockerfile")
-  .WithHttpEndpoint(targetPort: 8080, name: "http")
+var identity = builder.AddProject<Projects.Emma_Identity>("emma-identity")
   .WithReference(identityDb)
   .WithEnvironment("Jwt__Key", jwtKey)
   .WithEnvironment("Jwt__Issuer", "emma-identity")
@@ -78,7 +77,7 @@ var identity = builder.AddDockerfile("emma-identity", "../..", "src/Emma.Identit
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
   .WithReference(server)
-  .WithReference(identity.GetEndpoint("http"))
+  .WithReference(identity)
   .WithEnvironment("SERVER_HTTP", server.GetEndpoint("http"))
   .WithEnvironment("IDENTITY_HTTP", identity.GetEndpoint("http"))
   .WaitFor(server)
