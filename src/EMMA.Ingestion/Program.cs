@@ -28,6 +28,7 @@ builder.AddKafkaConsumer<string, string>("messaging", settings =>
 });
 
 builder.Services.AddSingleton<ITelemetryRepository, TelemetryRepository>();
+builder.Services.AddHostedService<DbInitializer>();
 builder.Services.AddHostedService<Worker>();
 
 var host = builder.Build();
