@@ -6,7 +6,7 @@ services:
     environment:
       ASPIRE_DASHBOARD_FORWARDEDHEADERS_ENABLED: "true"
     ports:
-      - "18888" # Dokploy mapeará esto automáticamente
+      - "18888"
     expose:
       - "18889"
       - "18890"
@@ -104,7 +104,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "server"
-    expose:
+    ports:
       - "${SERVER_PORT}"
     depends_on:
       postgresql:
@@ -216,7 +216,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "webfrontend"
-    expose:
+    ports:
       - "8000"
     depends_on:
       server:
@@ -283,7 +283,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://compose-dashboard:18889"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_SERVICE_NAME: "emma-api"
-    expose:
+    ports:
       - "${EMMA_API_PORT}"
     depends_on:
       postgresql:

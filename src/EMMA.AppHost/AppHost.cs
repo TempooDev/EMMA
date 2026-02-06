@@ -2,7 +2,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var compose = builder.AddDockerComposeEnvironment("compose").WithDashboard(dashboard =>
 {
-  dashboard.WithHostPort(8080)
+  dashboard.WithHostPort(1888)
     .WithForwardedHeaders(enabled: true);
 });
 
@@ -72,6 +72,7 @@ var identity = builder.AddDockerfile("emma-identity", "../..", "src/Emma.Identit
   .WithEnvironment("Jwt__Issuer", "emma-identity")
   .WithEnvironment("Jwt__Audience", "emma-api")
   .WaitFor(identityDb)
+  .WithExternalHttpEndpoints()
   .PublishAsDockerComposeService((_, service) => { service.Name = "emma-identity"; });
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
@@ -80,6 +81,7 @@ var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
   .WithEnvironment("SERVER_HTTP", server.GetEndpoint("http"))
   .WithEnvironment("IDENTITY_HTTP", identity.GetEndpoint("http"))
   .WaitFor(server)
+  .WithExternalHttpEndpoints()
   .PublishAsDockerComposeService((_, service) => { service.Name = "webfrontend"; });
 
 var commandService = builder.AddProject<Projects.EMMA_CommandService>("command-service")
@@ -97,6 +99,7 @@ var api = builder.AddProject<Projects.EMMA_Api>("emma-api")
   .WithEnvironment("Jwt__Audience", "emma-api")
   .WaitFor(appDb)
   .WaitFor(telemetryDb)
+  .WithExternalHttpEndpoints()
   .PublishAsDockerComposeService((_, service) => { service.Name = "emma-api"; });
 
 var solarForecaster = builder.AddPythonApp("solar-forecaster", "../EMMA.SolarForecaster", "main.py")
