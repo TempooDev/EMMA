@@ -380,4 +380,8 @@ services:
       - "dokploy-network"
 
 volumes:
-  postgres
+  postgres_data:
+
+networks:
+  dokploy-network:
+    external: true
