@@ -31,7 +31,7 @@ services:
       POSTGRES_PASSWORD: "${POSTGRESQL_PASSWORD}"
       POSTGRES_DB: "postgres"
     volumes:
-      - ./init-db:/docker-entrypoint-initdb.d
+      - ../files/init-db:/docker-entrypoint-initdb.d
       - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
@@ -179,6 +179,9 @@ services:
   emma-identity:
     image: "${EMMA_IDENTITY_IMAGE}"
     environment:
+      HTTP_PORTS: "5001"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__identity-db: "Host=postgresql;Port=5432;Username=postgres;Password=${POSTGRESQL_PASSWORD};Database=identity-db"
       Jwt__Key: "${JWT_KEY}"
       Jwt__Issuer: "emma-identity"
       Jwt__Audience: "emma-api"
