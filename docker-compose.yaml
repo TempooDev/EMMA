@@ -15,6 +15,8 @@ services:
     restart: "always"
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.dashboard-router.entrypoints=web"
+      - "traefik.http.routers.dashboard-router.rule=Host(`dashboard.local`)"
       - "traefik.http.routers.dashboard-router.service=dashboard-svc"
       - "traefik.http.services.dashboard-svc.loadbalancer.server.port=18888"
 
@@ -119,6 +121,8 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.server-router.entrypoints=web"
+      - "traefik.http.routers.server-router.rule=Host(`server.local`)"
       - "traefik.http.routers.server-router.service=server-svc"
       - "traefik.http.services.server-svc.loadbalancer.server.port=${SERVER_PORT}"
 
@@ -214,6 +218,8 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.identity-router.entrypoints=web"
+      - "traefik.http.routers.identity-router.rule=Host(`identity.local`)"
       - "traefik.http.routers.identity-router.service=identity-svc"
       - "traefik.http.services.identity-svc.loadbalancer.server.port=8080"
 
@@ -239,6 +245,8 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.frontend-router.entrypoints=web"
+      - "traefik.http.routers.frontend-router.rule=Host(`frontend.local`)"
       - "traefik.http.routers.frontend-router.service=frontend-svc"
       - "traefik.http.services.frontend-svc.loadbalancer.server.port=8000"
 
@@ -310,6 +318,8 @@ services:
       - "dokploy-network"
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.api-router.entrypoints=web"
+      - "traefik.http.routers.api-router.rule=Host(`api.local`)"
       - "traefik.http.routers.api-router.service=api-svc"
       - "traefik.http.services.api-svc.loadbalancer.server.port=${EMMA_API_PORT}"
 
@@ -370,8 +380,4 @@ services:
       - "dokploy-network"
 
 volumes:
-  postgres_data:
-
-networks:
-  dokploy-network:
-    external: true
+  postgres
