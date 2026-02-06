@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true, // Listen on all network interfaces (0.0.0.0) instead of localhost
+    port: 8000,
     proxy: {
       // Proxy API calls to the app service
       '/api': {
@@ -20,5 +22,9 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  preview: {
+    host: true, // Listen on all network interfaces for preview mode
+    port: 8000
   }
 })
