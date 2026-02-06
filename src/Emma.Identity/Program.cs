@@ -88,17 +88,14 @@ var app = builder.Build();
 app.MapDefaultEndpoints();
 
 // Configure Scalar API documentation in development
-if (app.Environment.IsDevelopment())
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference(options =>
-    {
-        options
-            .WithTitle("EMMA Identity API Documentation")
-            .WithTheme(ScalarTheme.Purple)
-            .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-    });
-}
+    options
+        .WithTitle("EMMA Identity API Documentation")
+        .WithTheme(ScalarTheme.Purple)
+        .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
