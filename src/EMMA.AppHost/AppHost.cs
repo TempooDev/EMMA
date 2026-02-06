@@ -2,13 +2,12 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var compose = builder.AddDockerComposeEnvironment("compose").WithDashboard(dashboard =>
 {
-    dashboard.WithHostPort(1888)
-      .WithForwardedHeaders(enabled: true);
+  dashboard.WithHostPort(1888)
+    .WithForwardedHeaders(enabled: true);
 });
 
 var postgresql = builder.AddPostgres("postgresql")
   .WithImage("timescale/timescaledb", "latest-pg17")
-  .WithBindMount("./init.sql", "/docker-entrypoint-initdb.d/init.sql")
   .WithPgAdmin();
 
 var identityDb = postgresql.AddDatabase("identity-db");
